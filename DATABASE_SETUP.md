@@ -89,6 +89,7 @@ ALTER TABLE public.contests ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Submissions are viewable by everyone" ON public.submissions;
 DROP POLICY IF EXISTS "Authenticated users can create submissions" ON public.submissions;
@@ -97,8 +98,9 @@ DROP POLICY IF EXISTS "Moderators can delete submissions" ON public.submissions;
 DROP POLICY IF EXISTS "Moderators can view logs" ON public.moderation_logs;
 DROP POLICY IF EXISTS "Moderators can create logs" ON public.moderation_logs;
 
--- Profiles: Users can read all, update only their own
+-- Profiles: Users can read all, insert their own, update only their own
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
 -- Submissions: Everyone can read, authenticated users can create
