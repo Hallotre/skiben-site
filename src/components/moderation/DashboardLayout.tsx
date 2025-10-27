@@ -2,6 +2,7 @@
 
 import { ReactNode, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import Link from 'next/link'
 
 interface DashboardNavItem {
   id: string
@@ -58,7 +59,7 @@ function NavItem({ item }: { item: DashboardNavItem }) {
   const isActive = pathname === item.path
   
   return (
-    <a
+    <Link
       href={item.path}
       className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
         isActive
@@ -71,7 +72,7 @@ function NavItem({ item }: { item: DashboardNavItem }) {
         <div className="font-medium">{item.label}</div>
         <div className="text-xs opacity-80">{item.description}</div>
       </div>
-    </a>
+    </Link>
   )
 }
 
