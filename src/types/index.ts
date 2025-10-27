@@ -60,6 +60,7 @@ export interface Contest {
   description: string
   status: 'ACTIVE' | 'INACTIVE' | 'ENDED'
   submission_count: number
+  display_number?: number
   created_at: string
   updated_at: string
 }

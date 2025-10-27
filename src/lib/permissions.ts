@@ -19,7 +19,12 @@ export async function checkRole(requiredRoles: UserRole[]): Promise<boolean> {
     .eq('id', user.id)
     .single()
   
-  return !!profile && !profile.is_banned && requiredRoles.includes(profile.role as UserRole)
+  if (!profile) return false
+  
+  const isBanned = profile.is_banned === true
+  const hasRequiredRole = requiredRoles.includes(profile.role as UserRole)
+  
+  return !isBanned && hasRequiredRole
 }
 
 export async function getUserProfile() {

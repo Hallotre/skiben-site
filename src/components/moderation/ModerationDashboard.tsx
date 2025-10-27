@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Submission, SubmissionStatus } from '@/types'
-import { Container, Typography, Box, Card, CardContent, Chip, CircularProgress, Grid, Paper, Avatar, Button } from '@mui/material'
+import { Typography, Box, Card, CardContent, Chip, CircularProgress, Grid, Paper, Avatar, Button } from '@mui/material'
 import StatusFilter from './StatusFilter'
 import ModerationActions from './ModerationActions'
 import VideoPlayer from '@/components/video/VideoPlayer'
@@ -18,7 +18,11 @@ function validateStatus(status: string | null): SubmissionStatus | 'ALL' {
   return status as SubmissionStatus
 }
 
-export default function ModerationDashboard() {
+interface ModerationDashboardProps {
+  contestId?: string | null
+}
+
+export default function ModerationDashboard({ contestId = null }: ModerationDashboardProps) {
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [loading, setLoading] = useState(true)
   const [currentStatus, setCurrentStatus] = useState<SubmissionStatus | 'ALL'>('ALL')
@@ -39,6 +43,11 @@ export default function ModerationDashboard() {
           submitter:profiles(*)
         `)
         .order('created_at', { ascending: false })
+
+      // Filter by contest if specified
+      if (contestId) {
+        query = query.eq('contest_id', contestId)
+      }
 
       // SECURITY: Validate status before using in query
       const validatedStatus = validateStatus(currentStatus)
@@ -104,9 +113,9 @@ export default function ModerationDashboard() {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Box>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h3" fontWeight={700} gutterBottom>
+        <Typography variant="h4" fontWeight={700} gutterBottom sx={{ color: 'text.primary' }}>
           Video Submissions
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -122,31 +131,35 @@ export default function ModerationDashboard() {
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 3 }}>
         {/* Submissions List */}
         <Box sx={{ flex: { xs: '1', lg: '0 0 33%' }, minWidth: 0 }}>
-          <Card>
-            <CardContent>
+          <Card elevation={0} sx={{ bgcolor: 'rgba(26, 26, 46, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" fontWeight={600}>
+                <Typography variant="h6" fontWeight={700} sx={{ color: 'text.primary' }}>
                   Submissions
                 </Typography>
-                <Chip label={submissions.length} color="primary" size="small" />
+                <Chip label={submissions.length} size="small" sx={{ bgcolor: 'primary.main', color: 'white' }} />
               </Box>
               
               <Box sx={{ maxHeight: '600px', overflowY: 'auto' }}>
                 {submissions.map((submission) => (
                   <Paper
                     key={submission.id}
+                    elevation={0}
                     onClick={() => setSelectedSubmission(submission)}
                     sx={{
                       p: 2,
                       mb: 2,
                       cursor: 'pointer',
+                      borderRadius: 2,
                       backgroundColor: selectedSubmission?.id === submission.id 
                         ? 'primary.main' 
-                        : 'rgba(30, 41, 59, 0.5)',
+                        : 'rgba(26, 26, 46, 0.4)',
+                      border: selectedSubmission?.id === submission.id ? '1px solid primary.main' : '1px solid rgba(255, 255, 255, 0.1)',
                       '&:hover': {
                         backgroundColor: selectedSubmission?.id === submission.id 
                           ? 'primary.dark' 
-                          : 'rgba(30, 41, 59, 0.7)',
+                          : 'rgba(26, 26, 46, 0.6)',
+                        borderColor: 'primary.main',
                       },
                       transition: 'all 0.2s',
                     }}
@@ -197,39 +210,39 @@ export default function ModerationDashboard() {
         {/* Selected Submission Details */}
         <Box sx={{ flex: { xs: '1', lg: '1' }, minWidth: 0 }}>
           {selectedSubmission ? (
-            <Card>
-              <CardContent>
+            <Card elevation={0} sx={{ bgcolor: 'rgba(26, 26, 46, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <CardContent sx={{ p: 3 }}>
                 <VideoPlayer
                   videoId={selectedSubmission.video_id}
                   platform={selectedSubmission.platform}
                   title={selectedSubmission.title}
                 />
                 
-                <Typography variant="h5" fontWeight={700} gutterBottom sx={{ mt: 3 }}>
+                <Typography variant="h5" fontWeight={700} gutterBottom sx={{ mt: 3, color: 'text.primary' }}>
                   {selectedSubmission.title}
                 </Typography>
                 
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 4 }}>
                   <Box sx={{ flex: 1 }}>
-                    <Paper sx={{ p: 2, bgcolor: 'rgba(30, 41, 59, 0.5)' }}>
+                    <Paper elevation={0} sx={{ p: 2, bgcolor: 'rgba(26, 26, 46, 0.4)', borderRadius: 2, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                       <Typography variant="caption" color="text.secondary">Platform</Typography>
-                      <Typography variant="body1" fontWeight={600}>{selectedSubmission.platform}</Typography>
+                      <Typography variant="body1" fontWeight={600} sx={{ color: 'text.primary' }}>{selectedSubmission.platform}</Typography>
                     </Paper>
                   </Box>
                   <Box sx={{ flex: 1 }}>
-                    <Paper sx={{ p: 2, bgcolor: 'rgba(30, 41, 59, 0.5)' }}>
+                    <Paper elevation={0} sx={{ p: 2, bgcolor: 'rgba(26, 26, 46, 0.4)', borderRadius: 2, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                       <Typography variant="caption" color="text.secondary">Submitted by</Typography>
-                      <Typography variant="body1" fontWeight={600}>{selectedSubmission.submitter?.username || 'Unknown'}</Typography>
+                      <Typography variant="body1" fontWeight={600} sx={{ color: 'text.primary' }}>{selectedSubmission.submitter?.username || 'Unknown'}</Typography>
                     </Paper>
                   </Box>
                   <Box sx={{ flex: 1 }}>
-                    <Paper sx={{ p: 2, bgcolor: 'rgba(30, 41, 59, 0.5)' }}>
+                    <Paper elevation={0} sx={{ p: 2, bgcolor: 'rgba(26, 26, 46, 0.4)', borderRadius: 2, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                       <Typography variant="caption" color="text.secondary">Date</Typography>
-                      <Typography variant="body1" fontWeight={600}>{new Date(selectedSubmission.created_at).toLocaleDateString()}</Typography>
+                      <Typography variant="body1" fontWeight={600} sx={{ color: 'text.primary' }}>{new Date(selectedSubmission.created_at).toLocaleDateString()}</Typography>
                     </Paper>
                   </Box>
                   <Box sx={{ flex: 1 }}>
-                      <Paper sx={{ p: 2, bgcolor: 'rgba(30, 41, 59, 0.5)' }}>
+                      <Paper elevation={0} sx={{ p: 2, bgcolor: 'rgba(26, 26, 46, 0.4)', borderRadius: 2, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                       <Typography variant="caption" color="text.secondary">URL</Typography>
                       <Typography
                         component="a"
@@ -257,7 +270,7 @@ export default function ModerationDashboard() {
               </CardContent>
             </Card>
           ) : (
-            <Card sx={{ textAlign: 'center', py: 12 }}>
+            <Card elevation={0} sx={{ textAlign: 'center', py: 12, bgcolor: 'rgba(26, 26, 46, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
               <CardContent>
                 <Typography variant="h2" sx={{ mb: 2, opacity: 0.3 }}>🎯</Typography>
                 <Typography variant="h6" color="text.secondary">Select a submission to review</Typography>
@@ -266,6 +279,6 @@ export default function ModerationDashboard() {
           )}
         </Box>
       </Box>
-    </Container>
+    </Box>
   )
 }

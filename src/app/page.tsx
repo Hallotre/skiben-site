@@ -58,14 +58,19 @@ export default function ContestsPage() {
       const { data, error } = await supabase
         .from('contests')
         .select('*')
-        .eq('status', 'ACTIVE')
         .order('created_at', { ascending: false })
 
       if (error) {
         console.error('Error fetching contests:', error)
         setContests([])
       } else {
-        setContests(data || [])
+        // Sort: active contests first, then by most recent
+        const sortedData = (data || []).sort((a, b) => {
+          if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
+          if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        })
+        setContests(sortedData)
       }
     } catch (error) {
       console.error('Error:', error)
@@ -97,6 +102,7 @@ export default function ContestsPage() {
         border: '1px solid rgba(59, 130, 246, 0.2)',
         textAlign: 'center',
         mb: 6,
+        borderRadius: 2,
       }}>
         <CardContent sx={{ px: 4 }}>
           {/* Avatar */}
@@ -145,7 +151,7 @@ export default function ContestsPage() {
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '1px',
-                borderRadius: 1,
+                borderRadius: 2,
                 boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.3)',
                 '&:hover': {
                   background: 'linear-gradient(135deg, #1d4ed8 0%, #0891b2 100%)',
@@ -167,12 +173,13 @@ export default function ContestsPage() {
             border: '1px solid rgba(59, 130, 246, 0.2)',
             textAlign: 'center', 
             py: 8,
-            color: 'white'
+            color: 'white',
+            borderRadius: 2,
           }}>
             <CardContent>
               <Typography variant="h1" sx={{ mb: 2, opacity: 0.5, fontSize: '4rem' }}>🎯</Typography>
               <Typography variant="h5" fontWeight={600} gutterBottom color="white">
-                No active contests
+                No contests found
               </Typography>
               <Typography variant="body1" sx={{ color: '#cccccc' }}>
                 Check back soon for new contest opportunities!
@@ -184,139 +191,121 @@ export default function ContestsPage() {
             <Card 
               key={contest.id} 
               sx={{ 
-                bgcolor: 'rgba(26, 26, 46, 0.6)',
+                bgcolor: contest.status === 'ACTIVE' ? 'rgba(26, 26, 46, 0.6)' : 'rgba(26, 26, 46, 0.3)',
                 border: '1px solid rgba(59, 130, 246, 0.2)',
                 color: 'white',
+                borderRadius: 2,
+                overflow: 'hidden',
+                opacity: contest.status === 'ACTIVE' ? 1 : 0.6,
                 '&:hover': {
-                  bgcolor: 'rgba(26, 26, 46, 0.8)',
+                  bgcolor: contest.status === 'ACTIVE' ? 'rgba(26, 26, 46, 0.8)' : 'rgba(26, 26, 46, 0.4)',
                   borderColor: 'rgba(59, 130, 246, 0.4)',
-                  boxShadow: '0 20px 25px -5px rgba(37, 99, 235, 0.4)',
-                  transform: 'translateY(-2px)',
+                  transform: contest.status === 'ACTIVE' ? 'translateY(-2px)' : 'none',
+                  boxShadow: contest.status === 'ACTIVE' ? '0 8px 16px rgba(0, 0, 0, 0.3)' : 'none',
                 },
                 transition: 'all 0.2s',
               }}
             >
-              <CardContent>
-                {/* Status and Date Row */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-                  <Chip
-                    label="Active"
-                    color="success"
-                    size="small"
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 3, alignItems: 'center', gap: 3 }}>
+                {/* Left side - Text content */}
+                <Box sx={{ flex: 1 }}>
+                  {/* Status and Date */}
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="body2" sx={{ color: '#b4b4b4', fontSize: '0.75rem' }}>
+                      Status: <Typography component="span" sx={{ 
+                        color: contest.status === 'ACTIVE' ? '#ef4444' : '#64748b', 
+                        fontWeight: 700, 
+                        fontSize: '0.75rem' 
+                      }}>
+                        {contest.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                      </Typography>
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#b4b4b4', fontSize: '0.75rem', mt: 0.5 }}>
+                      {new Date(contest.created_at).toLocaleDateString('en-US', { 
+                        month: 'long', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </Typography>
+                  </Box>
+
+                  {/* Alert Contest badge */}
+                  <Box sx={{ mb: 1 }}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: 'primary.main',
+                        fontWeight: 700,
+                        fontSize: '1rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px'
+                      }}
+                    >
+                      ALERT CONTEST
+                    </Typography>
+                  </Box>
+
+                  {/* Main title */}
+                  <Typography 
+                    variant="h6"
                     sx={{
-                      fontWeight: 700,
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                    }}
-                  />
-                  <Chip
-                    icon={<Event fontSize="small" />}
-                    label={new Date(contest.created_at).toLocaleDateString('en-US', { 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
-                    variant="outlined"
-                    size="small"
-                    sx={{
-                      borderColor: '#94a3b8',
-                      color: '#94a3b8',
-                      '& .MuiChip-icon': {
-                        color: '#94a3b8'
-                      }
-                    }}
-                  />
-                </Box>
-
-                {/* Contest Type */}
-                <Chip
-                  label="Alert Contest"
-                  size="small"
-                  sx={{
-                    bgcolor: '#3b82f6',
-                    color: 'white',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    mb: 2
-                  }}
-                />
-
-                {/* Title */}
-                <Typography 
-                  variant="h5"
-                  sx={{
-                    color: 'white',
-                    fontWeight: 700,
-                    mb: 3,
-                    fontSize: '1.25rem',
-                    lineHeight: 1.3
-                  }}
-                >
-                  {contest.title}
-                </Typography>
-
-                {/* Description */}
-                <Typography 
-                  variant="body2"
-                  sx={{
-                    color: '#94a3b8',
-                    mb: 3,
-                    lineHeight: 1.6
-                  }}
-                >
-                  {contest.description}
-                </Typography>
-
-                {/* Submissions Count */}
-                <Chip
-                  icon={<Event fontSize="small" />}
-                  label={`${contest.submission_count} Submissions`}
-                  variant="outlined"
-                  sx={{
-                    borderColor: '#3b82f6',
-                    color: '#3b82f6',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    '& .MuiChip-icon': {
-                      color: '#3b82f6'
-                    }
-                  }}
-                />
-              </CardContent>
-              
-              {/* Card Actions */}
-              <CardActions sx={{ justifyContent: 'flex-end', px: 3 }}>
-                {contest.status === 'ACTIVE' && (
-                  <Button
-                    variant="contained"
-                    size="large"
-                    onClick={() => setSelectedContest(contest)}
-                      startIcon={<TwitchIcon />}
-                    sx={{
-                      background: 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)',
                       color: 'white',
-                      px: 4,
-                      py: 1.5,
-                      fontSize: '0.875rem',
                       fontWeight: 700,
+                      mb: 1.5,
+                      fontSize: '1.5rem',
+                      lineHeight: 1.2,
                       textTransform: 'uppercase',
-                      letterSpacing: '1px',
-                      whiteSpace: 'nowrap',
-                      boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.3)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #1d4ed8 0%, #0891b2 100%)',
-                        boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.4)',
-                      },
+                      letterSpacing: '0.5px'
                     }}
                   >
-                    Submit
-                  </Button>
+                    {contest.title}
+                  </Typography>
+
+                  {/* Submissions count */}
+                  <Typography 
+                    variant="body2"
+                    sx={{
+                      color: 'primary.main',
+                      fontWeight: 700,
+                      fontSize: '1rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    {contest.submission_count} SUBMISSIONS
+                  </Typography>
+                </Box>
+
+                {/* Right side - Submit button */}
+                {contest.status === 'ACTIVE' && (
+                  <Box sx={{ alignSelf: 'center' }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => setSelectedContest(contest)}
+                      sx={{
+                        bgcolor: 'primary.main',
+                        color: 'white',
+                        px: 2,
+                        py: 1,
+                        minWidth: 80,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        fontSize: '0.75rem',
+                        borderRadius: 2,
+                        boxShadow: 'none',
+                        '&:hover': {
+                          bgcolor: 'primary.dark',
+                          boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                        },
+                      }}
+                    >
+                      SUBMIT
+                    </Button>
+                  </Box>
                 )}
-              </CardActions>
+              </Box>
             </Card>
           ))
         )}

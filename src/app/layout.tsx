@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body 
         className={`${inter.className} min-h-screen`} 
         style={{ 
@@ -30,9 +30,10 @@ export default function RootLayout({
           backgroundColor: '#0a0f1a',
           background: 'linear-gradient(135deg, #0a0f1a 0%, #111827 100%)'
         }}
+        suppressHydrationWarning
       >
         <MUIProvider>
-          <MUIAppBar />
+          <MUIAppBar hideOnModeration />
           {children}
         </MUIProvider>
       </body>
