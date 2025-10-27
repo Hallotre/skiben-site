@@ -7,7 +7,7 @@ import MUIProvider from '@/providers/MUIProvider'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Skiben',
+  title: 'SKIBEN',
   description: 'Skibens website',
   icons: {
     icon: '/favicon.ico',
