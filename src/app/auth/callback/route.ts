@@ -3,29 +3,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
+  try {
+    const { searchParams, origin } = new URL(request.url)
+    const code = searchParams.get('code')
+    const next = searchParams.get('next') ?? '/'
 
-  // SECURITY: Validate redirect URL to prevent open redirect attacks
-  const sanitizeRedirectUrl = (url: string): string => {
-    // Only allow relative URLs starting with /
-    if (url.startsWith('/') && !url.includes('//')) {
-      // Additional check: ensure it's a valid path
-      if (/^\/[a-zA-Z0-9\-_\/?=&]*$/.test(url)) {
-        return url
+    // SECURITY: Validate redirect URL to prevent open redirect attacks
+    const sanitizeRedirectUrl = (url: string): string => {
+      // Only allow relative URLs starting with /
+      if (url.startsWith('/') && !url.includes('//')) {
+        // Additional check: ensure it's a valid path
+        if (/^\/[a-zA-Z0-9\-_\/?=&]*$/.test(url)) {
+          return url
+        }
       }
+      return '/'
     }
-    return '/'
-  }
 
-  const safeNext = sanitizeRedirectUrl(next)
+    const safeNext = sanitizeRedirectUrl(next)
 
-  if (code) {
-    const cookieStore = cookies()
-    const supabase = createClient(cookieStore)
-    
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (code) {
+      const cookieStore = cookies()
+      const supabase = createClient(cookieStore)
+      
+      const { error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error) {
       // Get user info and create/update profile
@@ -67,5 +68,9 @@ export async function GET(request: NextRequest) {
 
   // Return the user to an error page with instructions
   return NextResponse.redirect(`${origin}/?error=Invalid authorization code`)
+  } catch (error: any) {
+    console.error('Auth callback error:', error?.message || error)
+    return NextResponse.redirect(`${new URL(request.url).origin}/?error=Server error`)
+  }
 }
 
