@@ -125,7 +125,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
             <div className="flex flex-col gap-4">
               <div>
                 <Label htmlFor="title" className="text-white font-medium text-sm mb-2 block">
-                       Tittel
+                       Tittel *
                 </Label>
                 <Input
                   id="title"
@@ -158,7 +158,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
 
               <div>
                 <Label htmlFor="link" className="text-white font-medium text-sm mb-2 block">
-                       Lenke
+                       Lenke *
                 </Label>
                 <Input
                   id="link"
@@ -172,7 +172,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
 
               <div>
                 <Label htmlFor="startTimestamp" className="text-white font-medium text-sm mb-2 block">
-                       Starttidspunkt
+                       Start tidspunkt *
                 </Label>
                 <Input
                   id="startTimestamp"
@@ -186,7 +186,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
 
               <div>
                 <Label htmlFor="endTimestamp" className="text-white font-medium text-sm mb-2 block">
-                       Sluttidspunkt
+                       Slutt tidspunkt *
                 </Label>
                 <Input
                   id="endTimestamp"
