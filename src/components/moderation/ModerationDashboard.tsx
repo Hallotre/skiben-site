@@ -2,36 +2,29 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Submission, SubmissionStatus } from '@/types'
-import { Typography, Box, Card, CardContent, Chip, CircularProgress, Grid, Paper, Avatar, Button } from '@mui/material'
-import StatusFilter from './StatusFilter'
-import ModerationActions from './ModerationActions'
+import { Submission } from '@/types'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import VideoPlayer from '@/components/video/VideoPlayer'
-
-// SECURITY: Whitelist of allowed submission statuses
-const ALLOWED_STATUSES: SubmissionStatus[] = ['UNAPPROVED', 'APPROVED', 'DENIED', 'WINNER']
-
-function validateStatus(status: string | null): SubmissionStatus | 'ALL' {
-  if (!status || !ALLOWED_STATUSES.includes(status as SubmissionStatus)) {
-    return 'ALL'
-  }
-  return status as SubmissionStatus
-}
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Trophy } from 'lucide-react'
 
 interface ModerationDashboardProps {
-  contestId?: string | null
+  selectedContest: string | null
+  allContests: any[]
 }
 
-export default function ModerationDashboard({ contestId = null }: ModerationDashboardProps) {
+export default function ModerationDashboard({ selectedContest, allContests }: ModerationDashboardProps) {
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [loading, setLoading] = useState(true)
-  const [currentStatus, setCurrentStatus] = useState<SubmissionStatus | 'ALL'>('ALL')
-  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null)
+  const [currentStatus, setCurrentStatus] = useState('UNAPPROVED')
   const supabase = createClient()
 
   useEffect(() => {
     fetchSubmissions()
-  }, [currentStatus])
+  }, [selectedContest, currentStatus])
 
   const fetchSubmissions = async () => {
     setLoading(true)
@@ -42,243 +35,149 @@ export default function ModerationDashboard({ contestId = null }: ModerationDash
           *,
           submitter:profiles(*)
         `)
-        .order('created_at', { ascending: false })
+        .eq('status', currentStatus)
 
-      // Filter by contest if specified
-      if (contestId) {
-        query = query.eq('contest_id', contestId)
+      if (selectedContest && selectedContest !== 'all') {
+        query = query.eq('contest_id', selectedContest)
       }
 
-      // SECURITY: Validate status before using in query
-      const validatedStatus = validateStatus(currentStatus)
-      if (validatedStatus !== 'ALL' && ALLOWED_STATUSES.includes(validatedStatus as SubmissionStatus)) {
-        query = query.eq('status', validatedStatus)
-      }
-
-      const { data, error } = await query
-
-      if (error) {
-        console.error('Error fetching submissions:', error)
-        return
-      }
+      const { data } = await query.order('created_at', { ascending: false })
 
       setSubmissions(data || [])
-      
-      // Select first submission if none selected
-      if (!selectedSubmission && data && data.length > 0) {
-        setSelectedSubmission(data[0])
-      }
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error fetching submissions:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleStatusChange = (submissionId: string, newStatus: SubmissionStatus) => {
-    setSubmissions(prev => 
-      prev.map(sub => 
-        sub.id === submissionId ? { ...sub, status: newStatus } : sub
-      )
-    )
-    
-    // Update selected submission if it's the one being changed
-    if (selectedSubmission?.id === submissionId) {
-      setSelectedSubmission(prev => prev ? { ...prev, status: newStatus } : null)
-    }
-    
-    // Refresh the list to update counts
-    fetchSubmissions()
-  }
-
-  const handleBanUser = (userId: string) => {
-    // Remove all submissions from banned user
-    setSubmissions(prev => prev.filter(sub => sub.submitter_id !== userId))
-    
-    // Clear selected submission if it was from banned user
-    if (selectedSubmission?.submitter_id === userId) {
-      setSelectedSubmission(null)
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'APPROVED': return 'bg-green-600'
+      case 'DENIED': return 'bg-red-600'
+      case 'WINNER': return 'bg-yellow-600'
+      case 'UNAPPROVED': return 'bg-yellow-600'
+      default: return 'bg-gray-600'
     }
   }
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" color="text.secondary" sx={{ mt: 3 }}>
-          Loading submissions...
-        </Typography>
-      </Box>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Spinner size="lg" />
+        <p className="mt-6 text-lg text-slate-400">Laster inn innsendinger...</p>
+      </div>
     )
   }
 
+  const selectedContestInfo = allContests.find(c => c.id === selectedContest)
+
   return (
-    <Box>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" fontWeight={700} gutterBottom sx={{ color: 'text.primary' }}>
-          Video Submissions
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Review and moderate submitted videos
-        </Typography>
-      </Box>
-
-      <StatusFilter 
-        currentStatus={currentStatus}
-        onStatusChange={setCurrentStatus}
-      />
-
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 3 }}>
-        {/* Submissions List */}
-        <Box sx={{ flex: { xs: '1', lg: '0 0 33%' }, minWidth: 0 }}>
-          <Card elevation={0} sx={{ bgcolor: 'rgba(26, 26, 46, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" fontWeight={700} sx={{ color: 'text.primary' }}>
-                  Submissions
-                </Typography>
-                <Chip label={submissions.length} size="small" sx={{ bgcolor: 'primary.main', color: 'white' }} />
-              </Box>
-              
-              <Box sx={{ maxHeight: '600px', overflowY: 'auto' }}>
-                {submissions.map((submission) => (
-                  <Paper
-                    key={submission.id}
-                    elevation={0}
-                    onClick={() => setSelectedSubmission(submission)}
-                    sx={{
-                      p: 2,
-                      mb: 2,
-                      cursor: 'pointer',
-                      borderRadius: 2,
-                      backgroundColor: selectedSubmission?.id === submission.id 
-                        ? 'primary.main' 
-                        : 'rgba(26, 26, 46, 0.4)',
-                      border: selectedSubmission?.id === submission.id ? '1px solid primary.main' : '1px solid rgba(255, 255, 255, 0.1)',
-                      '&:hover': {
-                        backgroundColor: selectedSubmission?.id === submission.id 
-                          ? 'primary.dark' 
-                          : 'rgba(26, 26, 46, 0.6)',
-                        borderColor: 'primary.main',
-                      },
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      {submission.thumbnail_url && (
-                        <Avatar
-                          src={submission.thumbnail_url}
-                          variant="rounded"
-                          sx={{ width: 60, height: 45 }}
-                        />
-                      )}
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" fontWeight={600} noWrap>
-                          {submission.title}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {submission.platform} • {submission.submitter?.username}
-                        </Typography>
-                        <Chip
-                          label={submission.status}
-                          size="small"
-                          sx={{
-                            mt: 0.5,
-                            height: 20,
-                            fontSize: '0.65rem',
-                            ...(submission.status === 'APPROVED' ? { bgcolor: 'success.main' } :
-                                submission.status === 'DENIED' ? { bgcolor: 'error.main' } :
-                                submission.status === 'WINNER' ? { bgcolor: 'warning.main' } :
-                                { bgcolor: 'grey.700' })
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                  </Paper>
-                ))}
-                
-                {submissions.length === 0 && (
-                  <Box sx={{ textAlign: 'center', py: 8 }}>
-                    <Typography color="text.secondary">No submissions found</Typography>
-                  </Box>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
-
-        {/* Selected Submission Details */}
-        <Box sx={{ flex: { xs: '1', lg: '1' }, minWidth: 0 }}>
-          {selectedSubmission ? (
-            <Card elevation={0} sx={{ bgcolor: 'rgba(26, 26, 46, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-              <CardContent sx={{ p: 3 }}>
-                <VideoPlayer
-                  videoId={selectedSubmission.video_id}
-                  platform={selectedSubmission.platform}
-                  title={selectedSubmission.title}
-                />
-                
-                <Typography variant="h5" fontWeight={700} gutterBottom sx={{ mt: 3, color: 'text.primary' }}>
-                  {selectedSubmission.title}
-                </Typography>
-                
-                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 4 }}>
-                  <Box sx={{ flex: 1 }}>
-                    <Paper elevation={0} sx={{ p: 2, bgcolor: 'rgba(26, 26, 46, 0.4)', borderRadius: 2, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                      <Typography variant="caption" color="text.secondary">Platform</Typography>
-                      <Typography variant="body1" fontWeight={600} sx={{ color: 'text.primary' }}>{selectedSubmission.platform}</Typography>
-                    </Paper>
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Paper elevation={0} sx={{ p: 2, bgcolor: 'rgba(26, 26, 46, 0.4)', borderRadius: 2, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                      <Typography variant="caption" color="text.secondary">Submitted by</Typography>
-                      <Typography variant="body1" fontWeight={600} sx={{ color: 'text.primary' }}>{selectedSubmission.submitter?.username || 'Unknown'}</Typography>
-                    </Paper>
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Paper elevation={0} sx={{ p: 2, bgcolor: 'rgba(26, 26, 46, 0.4)', borderRadius: 2, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                      <Typography variant="caption" color="text.secondary">Date</Typography>
-                      <Typography variant="body1" fontWeight={600} sx={{ color: 'text.primary' }}>{new Date(selectedSubmission.created_at).toLocaleDateString()}</Typography>
-                    </Paper>
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                      <Paper elevation={0} sx={{ p: 2, bgcolor: 'rgba(26, 26, 46, 0.4)', borderRadius: 2, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                      <Typography variant="caption" color="text.secondary">URL</Typography>
-                      <Typography
-                        component="a"
-                        href={selectedSubmission.video_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        variant="body2"
-                        sx={{ 
-                          color: 'primary.main',
-                          textDecoration: 'none',
-                          '&:hover': { textDecoration: 'underline' }
-                        }}
-                      >
-                        Open Video →
-                      </Typography>
-                    </Paper>
-                  </Box>
-                </Box>
-
-                <ModerationActions
-                  submission={selectedSubmission}
-                  onStatusChange={handleStatusChange}
-                  onBanUser={handleBanUser}
-                />
-              </CardContent>
-            </Card>
-          ) : (
-            <Card elevation={0} sx={{ textAlign: 'center', py: 12, bgcolor: 'rgba(26, 26, 46, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-              <CardContent>
-                <Typography variant="h2" sx={{ mb: 2, opacity: 0.3 }}>🎯</Typography>
-                <Typography variant="h6" color="text.secondary">Select a submission to review</Typography>
-              </CardContent>
-            </Card>
+    <div className="space-y-6">
+      {/* Status Filter Header */}
+      <div className="pb-4 border-b border-slate-800">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-xl font-semibold text-white">Vurder innsendinger</h3>
+            {selectedContestInfo && selectedContest !== 'all' && (
+              <p className="text-sm text-slate-400 flex items-center gap-2 mt-1">
+                <Trophy className="h-3 w-3" />
+                Konkurranse: {selectedContestInfo.title}
+              </p>
+            )}
+            {(!selectedContest || selectedContest === 'all') && (
+              <p className="text-sm text-slate-400 mt-1">Alle konkurranser</p>
+            )}
+          </div>
+          {selectedContestInfo && selectedContest !== 'all' && (
+            <Badge className="bg-blue-600 text-white">
+              {selectedContestInfo.title}
+            </Badge>
           )}
-        </Box>
-      </Box>
-    </Box>
+        </div>
+      </div>
+
+      {/* Status Filter */}
+      <div className="flex gap-2 flex-wrap">
+            {(['UNAPPROVED', 'APPROVED', 'DENIED', 'WINNER'] as const).map(status => (
+          <Button
+            key={status}
+            variant={currentStatus === status ? 'default' : 'outline'}
+            onClick={() => setCurrentStatus(status)}
+            className={currentStatus === status 
+              ? 'bg-blue-600 text-white hover:bg-blue-700 hover:text-white' 
+              : 'border-slate-700 bg-slate-900/30 text-white hover:bg-slate-700 hover:border-slate-600 hover:text-white'
+            }
+          >
+                {status === 'UNAPPROVED' && 'VENTENDE'}
+                {status === 'APPROVED' && 'GODKJENT'}
+                {status === 'DENIED' && 'AVSLÅTT'}
+                {status === 'WINNER' && 'VINNER'}
+          </Button>
+        ))}
+      </div>
+
+      {/* Submissions List */}
+      {submissions.length === 0 ? (
+        <Card className="border-slate-800 bg-slate-900/50 text-center py-12">
+          <CardContent>
+            <p className="text-slate-400">Ingen {currentStatus === 'UNAPPROVED' ? 'ventende' : currentStatus === 'APPROVED' ? 'godkjente' : currentStatus === 'DENIED' ? 'avslåtte' : 'vinner'} innsendinger funnet</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {submissions.map((submission) => (
+            <Card key={submission.id} className="border-slate-800 bg-slate-900/50 hover:border-blue-600/50 transition-all">
+              <CardContent className="p-6">
+                <div className="flex gap-6">
+                  {/* Video Player */}
+                  <div className="flex-shrink-0 w-80">
+                    <VideoPlayer
+                      videoId={submission.video_id}
+                      platform={submission.platform}
+                      title={submission.title}
+                    />
+                  </div>
+
+                  {/* Submission Details */}
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-xl font-bold text-white mb-1">{submission.title}</h3>
+                        <p className="text-sm text-slate-400">{submission.video_url}</p>
+                      </div>
+                      <Badge className={`${getStatusColor(submission.status)} text-white font-bold`}>
+                        {submission.status}
+                      </Badge>
+                    </div>
+
+                    {submission.submitter && (
+                      <div className="flex items-center gap-2 mb-4">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-slate-800 text-white">
+                            {submission.submitter.username?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm text-slate-400">{submission.submitter.username}</span>
+                      </div>
+                    )}
+
+                    {submission.submission_comment && (
+                      <p className="text-slate-400 mb-4">{submission.submission_comment}</p>
+                    )}
+
+                    <div className="mt-4 text-sm text-slate-500">
+                      Sendt inn: {new Date(submission.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
+
+

@@ -2,20 +2,30 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Contest } from '@/types'
-import { Box, Typography, Card, CardContent, Button, CircularProgress, Chip, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Divider } from '@mui/material'
-import AddIcon from '@mui/icons-material/Add'
-import VideoLibraryIcon from '@mui/icons-material/VideoLibrary'
-import Link from 'next/link'
+import { Contest, ContestTag } from '@/types'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Spinner } from '@/components/ui/spinner'
+import { Plus, Video, Loader2, Trophy, TrendingUp, Trash2, Check } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 export default function ContestsTab() {
+  const router = useRouter()
   const [contests, setContests] = useState<Contest[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [tags, setTags] = useState<ContestTag[]>([])
   const supabase = createClient()
 
   useEffect(() => {
     fetchContests()
+    fetchTags()
   }, [])
 
   const fetchContests = async () => {
@@ -39,8 +49,25 @@ export default function ContestsTab() {
     }
   }
 
+  const fetchTags = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('contest_tags')
+        .select('*')
+        .order('name', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching tags:', error)
+      } else {
+        setTags(data || [])
+      }
+    } catch (error) {
+      console.error('Error:', error)
+    }
+  }
+
   const handleDelete = async (contestId: string) => {
-    if (!confirm('Are you sure you want to delete this contest?')) return
+    if (!confirm('Er du sikker på at du vil slette denne konkurransen?')) return
 
     try {
       const { error } = await supabase
@@ -71,173 +98,138 @@ export default function ContestsTab() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" color="text.secondary" sx={{ mt: 3 }}>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Spinner size="lg" />
+        <p className="mt-6 text-lg text-slate-400">
           Loading contests...
-        </Typography>
-      </Box>
+        </p>
+      </div>
     )
   }
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Box>
-          <Typography 
-            variant="h4" 
-            fontWeight={800} 
-            gutterBottom
-            sx={{
-              background: 'linear-gradient(135deg, #ec4899 0%, #f59e0b 100%)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            🎯 Contest Management
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-            Create and manage video contests
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setShowModal(true)}
-          sx={{
-            bgcolor: 'primary.main',
-            '&:hover': {
-              bgcolor: 'primary.dark',
-            },
-          }}
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <div>
+          <h2 className="text-4xl font-extrabold mb-2 flex items-center gap-2">
+            <Trophy className="h-8 w-8 text-white" />
+            <span className="text-white">Konkurranseadministrasjon</span>
+          </h2>
+          <p className="text-slate-400 font-medium">
+            Opprett og administrer videokonkurranser
+          </p>
+        </div>
+        <Button 
+          onClick={() => setShowModal(true)} 
+          className="bg-blue-600 hover:bg-blue-700 text-white"
         >
-          Create Contest
+          <Plus className="mr-2 h-4 w-4" />
+          Opprett konkurranse
         </Button>
-      </Box>
+      </div>
 
+      {/* Empty State */}
       {contests.length === 0 ? (
-        <Card elevation={0} sx={{ bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid', borderColor: 'divider', textAlign: 'center', py: 12 }}>
-          <VideoLibraryIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary" gutterBottom>No contests created yet</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-            Create your first contest to start collecting submissions
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setShowModal(true)}
-          >
-            Create Contest
-          </Button>
+        <Card className="border-slate-800 bg-slate-900/50 text-center py-16">
+          <CardContent>
+            <div className="flex flex-col items-center gap-4">
+              <div className="p-4 bg-slate-800 rounded-full">
+                <Video className="h-16 w-16 text-slate-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white mb-2">Ingen konkurranser opprettet ennå</h3>
+                <p className="text-slate-400 mb-6">
+                  Opprett din første konkurranse for å starte innsamling av innsendinger
+                </p>
+                <Button 
+                  onClick={() => setShowModal(true)} 
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Opprett konkurranse
+                </Button>
+              </div>
+            </div>
+          </CardContent>
         </Card>
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' }, gap: 3 }}>
+        /* Contests Grid */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {contests.map((contest) => (
             <Card
               key={contest.id}
-              elevation={0}
-              sx={{
-                bgcolor: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid',
-                borderColor: 'divider',
-                transition: 'all 0.3s',
-                '&:hover': {
-                  borderColor: 'primary.main',
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                },
-              }}
+              className="group border-slate-800 bg-slate-900/50 hover:border-blue-600/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
             >
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Chip
-                    label={contest.status}
-                    size="small"
-                    sx={{
-                      bgcolor: contest.status === 'ACTIVE' ? '#ef4444' : '#64748b',
-                      color: 'white',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                    }}
-                  />
-                  <Typography variant="caption" color="text.secondary">
-                    Created: {new Date(contest.created_at).toLocaleDateString()}
-                  </Typography>
-                </Box>
-
-                <Chip
-                  label="Alert Contest"
-                  size="small"
-                  sx={{
-                    mb: 2,
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    fontWeight: 600,
-                  }}
-                />
-
-                <Typography variant="h6" fontWeight={700} gutterBottom>
-                  {contest.title}
-                </Typography>
-
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3, minHeight: 48 }}>
-                  {contest.description || 'No description'}
-                </Typography>
-
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <VideoLibraryIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                  <Typography variant="body2" fontWeight={700} color="primary.main">
-                    {contest.submission_count} SUBMISSIONS
-                  </Typography>
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
-                  <Link href={`/moderation/contests/${contest.id}/submissions`} passHref>
-                    <Button
-                      variant="contained"
-                      fullWidth
-                      sx={{
-                        bgcolor: '#3b82f6',
-                        '&:hover': { bgcolor: '#2563eb' },
-                      }}
-                    >
-                      View Submissions
-                    </Button>
-                  </Link>
+              <CardHeader>
+                <div className="flex items-start justify-between mb-2">
+                  <Badge className={contest.status === 'ACTIVE' ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-700'}>
+                    {contest.status}
+                  </Badge>
                   <Button
-                    variant="outlined"
-                    fullWidth
-                    onClick={() => handleStatusChange(contest.id, contest.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')}
-                    sx={{
-                      borderColor: contest.status === 'ACTIVE' ? '#f59e0b' : '#22c55e',
-                      color: contest.status === 'ACTIVE' ? '#f59e0b' : '#22c55e',
-                      '&:hover': {
-                        borderColor: contest.status === 'ACTIVE' ? '#d97706' : '#16a34a',
-                        bgcolor: contest.status === 'ACTIVE' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(34, 197, 94, 0.1)',
-                      },
-                    }}
-                  >
-                    {contest.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-                  </Button>
-                  <Button
-                    variant="text"
-                    fullWidth
+                    size="sm"
+                    variant="ghost"
                     onClick={() => handleDelete(contest.id)}
-                    sx={{
-                      color: '#ef4444',
-                      '&:hover': {
-                        bgcolor: 'rgba(239, 68, 68, 0.1)',
-                      },
-                    }}
+                    className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10"
                   >
-                    Delete
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                </Box>
+                </div>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                  <TrendingUp className="h-3 w-3" />
+                  Opprettet: {new Date(contest.created_at).toLocaleDateString()}
+                </div>
+
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  {contest.tags && contest.tags.map((tag, index) => (
+                    <Badge 
+                      key={index} 
+                      variant="secondary" 
+                      className="bg-blue-600/10 text-blue-400 border-blue-600/30 font-semibold"
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </CardHeader>
+
+              <CardContent>
+                <h3 className="font-bold text-xl mb-3 text-white transition-colors">
+                  {contest.title}
+                </h3>
+                <p className="text-sm text-slate-400 mb-4 min-h-[48px] line-clamp-3">
+                  {contest.description || 'Ingen beskrivelse'}
+                </p>
+
+                <div className="flex items-center gap-2 p-3 bg-blue-600/10 rounded-lg mb-4 border border-blue-600/20">
+                  <Video className="h-5 w-5 text-blue-400" />
+                  <div>
+                    <p className="text-sm font-bold text-blue-400">
+                      {contest.submission_count} INNSENDINGER
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Button 
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => router.push(`/moderation?contest=${contest.id}&tab=submissions`)}
+                  >
+                    Se innsendinger
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full border-slate-700 bg-slate-800/30 text-white hover:bg-slate-800 hover:border-slate-600 hover:text-white"
+                    onClick={() => handleStatusChange(contest.id, contest.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')}
+                  >
+                    {contest.status === 'ACTIVE' ? 'Deaktiver' : 'Aktiver'}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
-        </Box>
+        </div>
       )}
 
       <CreateContestModal
@@ -247,16 +239,18 @@ export default function ContestsTab() {
           setShowModal(false)
           fetchContests()
         }}
+        tags={tags}
       />
-    </Box>
+    </div>
   )
 }
 
-function CreateContestModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: () => void }) {
+function CreateContestModal({ open, onClose, onSuccess, tags }: { open: boolean; onClose: () => void; onSuccess: () => void; tags: ContestTag[] }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE'
+    status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
+    tags: 'Alert Contest'
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -271,14 +265,17 @@ function CreateContestModal({ open, onClose, onSuccess }: { open: boolean; onClo
       const { error: insertError } = await supabase
         .from('contests')
         .insert({
-          ...formData,
+          title: formData.title,
+          description: formData.description,
+          status: formData.status,
+          tags: [formData.tags],
           submission_count: 0
         })
 
       if (insertError) throw insertError
       
       onSuccess()
-      setFormData({ title: '', description: '', status: 'ACTIVE' })
+      setFormData({ title: '', description: '', status: 'ACTIVE', tags: 'Alert Contest' })
     } catch (err: any) {
       setError(err.message || 'Failed to create contest')
     } finally {
@@ -287,215 +284,133 @@ function CreateContestModal({ open, onClose, onSuccess }: { open: boolean; onClo
   }
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      sx={{
-        '& .MuiBackdrop-root': {
-          bgcolor: 'rgba(0, 0, 0, 0.8)',
-          backdropFilter: 'blur(8px)',
-        },
-      }}
-      PaperProps={{
-        sx: {
-          bgcolor: 'rgba(15, 23, 42, 0.95)',
-          borderRadius: 3,
-          border: '1px solid',
-          borderColor: 'rgba(59, 130, 246, 0.3)',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-        },
-      }}
-    >
-      <form onSubmit={handleSubmit}>
-        <DialogTitle sx={{ pb: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: 2,
-                bgcolor: 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-              }}
-            >
-              <AddIcon sx={{ color: 'white', fontSize: 24 }} />
-            </Box>
-            <Box>
-              <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: 'text.primary' }}>
-                Create New Contest
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                Start collecting video submissions
-              </Typography>
-            </Box>
-          </Box>
-        </DialogTitle>
+    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="bg-slate-900 border-slate-800 rounded-lg max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-blue-600">
+              <Plus className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-xl text-white">Opprett ny konkurranse</h3>
+              <p className="text-sm text-slate-400">Start innsamling av videoinnsendinger</p>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
 
-        <Divider sx={{ mx: 3 }} />
+        <form onSubmit={handleSubmit}>
+          <div className="flex flex-col gap-4 mt-4">
+            <div>
+              <Label htmlFor="title" className="text-white">Tittel</Label>
+              <Input
+                id="title"
+                required
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="f.eks. SUB ALERT FORSLAG"
+                className="bg-slate-800 border-slate-700 text-white mt-2"
+              />
+            </div>
 
-        <DialogContent sx={{ py: 3 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            <TextField
-              fullWidth
-              label="Contest Title"
-              required
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="e.g., SUB ALERT SUGGESTIONS"
-              autoFocus
-              InputLabelProps={{
-                sx: { color: 'text.secondary' }
-              }}
-              InputProps={{
-                sx: {
-                  color: 'text.primary',
-                  bgcolor: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: 2,
-                  '& fieldset': {
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'primary.main',
-                  },
-                  '&::placeholder': {
-                    color: 'text.secondary',
-                    opacity: 0.5,
-                  },
-                }
-              }}
-            />
+            <div>
+              <Label htmlFor="description" className="text-white">Beskrivelse</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Beskriv hva denne konkurransen handler om..."
+                className="bg-slate-800 border-slate-700 text-white mt-2"
+                rows={4}
+              />
+            </div>
 
-            <TextField
-              fullWidth
-              label="Description"
-              multiline
-              rows={4}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Describe what this contest is about..."
-              InputLabelProps={{
-                sx: { color: 'text.secondary' }
-              }}
-              InputProps={{
-                sx: {
-                  color: 'text.primary',
-                  bgcolor: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: 2,
-                  '& fieldset': {
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'primary.main',
-                  },
-                  '&::placeholder': {
-                    color: 'text.secondary',
-                    opacity: 0.5,
-                  },
-                }
-              }}
-            />
-
-            <FormControl fullWidth>
-              <InputLabel sx={{ color: 'text.secondary' }}>Status</InputLabel>
+            <div>
+              <Label htmlFor="status" className="text-white">Status</Label>
               <Select
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'ACTIVE' | 'INACTIVE' })}
-                label="Status"
-                sx={{
-                  bgcolor: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: 2,
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: 'primary.main',
-                  },
-                  '& .MuiSelect-icon': {
-                    color: 'white',
-                  },
-                }}
-                MenuProps={{
-                  PaperProps: {
-                    sx: {
-                      bgcolor: 'rgba(15, 23, 42, 0.98)',
-                      border: '1px solid rgba(59, 130, 246, 0.3)',
-                    },
-                  },
-                }}
+                onValueChange={(value) => setFormData({ ...formData, status: value as 'ACTIVE' | 'INACTIVE' })}
               >
-                <MenuItem value="ACTIVE">
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Chip label="ACTIVE" size="small" sx={{ bgcolor: '#ef4444', color: 'white', fontWeight: 700 }} />
-                    <Typography variant="body2">Start collecting submissions</Typography>
-                  </Box>
-                </MenuItem>
-                <MenuItem value="INACTIVE">
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Chip label="INACTIVE" size="small" sx={{ bgcolor: '#64748b', color: 'white', fontWeight: 700 }} />
-                    <Typography variant="body2">Pause submissions</Typography>
-                  </Box>
-                </MenuItem>
+                <SelectTrigger className="bg-slate-800 border-slate-700 text-white mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-800">
+                  <SelectItem value="ACTIVE">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-green-500 font-semibold">AKTIV</span>
+                      <span className="text-slate-400 text-sm"></span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="INACTIVE">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-slate-500" />
+                      <span className="text-slate-400 font-semibold">INAKTIV</span>
+                      <span className="text-slate-500 text-sm"></span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
               </Select>
-            </FormControl>
+            </div>
+
+            <div>
+              <Label htmlFor="tags" className="text-white">Konkurranse-tag</Label>
+              <Select
+                value={formData.tags}
+                onValueChange={(value) => setFormData({ ...formData, tags: value })}
+              >
+                <SelectTrigger className="bg-slate-800 border-slate-700 text-white mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-800">
+                  {tags && tags.length === 0 ? (
+                    <div className="px-2 py-1.5 text-slate-400 text-sm">Ingen tagger tilgjengelig</div>
+                  ) : (
+                    tags?.map((t: ContestTag) => (
+                      <SelectItem key={t.id} value={t.name}>
+                        <span className="text-white">{t.name}</span>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
             {error && (
-              <Box 
-                sx={{ 
-                  p: 2, 
-                  bgcolor: 'rgba(239, 68, 68, 0.1)', 
-                  border: '1px solid #ef4444',
-                  borderRadius: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1
-                }}
-              >
-                <Typography variant="body2" color="error.main" fontWeight={600}>
-                  {error}
-                </Typography>
-              </Box>
+              <div className="p-3 bg-red-500/10 border border-red-500 rounded-lg">
+                <p className="text-sm text-red-400 font-semibold">{error}</p>
+              </div>
             )}
-          </Box>
-        </DialogContent>
+          </div>
 
-        <Divider sx={{ mx: 3 }} />
-
-        <DialogActions sx={{ p: 3 }}>
-          <Button 
-            onClick={onClose} 
-            variant="outlined"
-            size="large"
-            sx={{ minWidth: 100 }}
-          >
-            Cancel
-          </Button>
-          <Button 
-            type="submit" 
-            disabled={loading}
-            variant="contained"
-            size="large"
-            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
-            sx={{ minWidth: 150 }}
-          >
-            {loading ? 'Creating...' : 'Create Contest'}
-          </Button>
-        </DialogActions>
-      </form>
+          <DialogFooter className="mt-6">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose}
+              className="border-slate-700 bg-slate-800/30 text-white hover:bg-slate-800 hover:border-slate-600 hover:text-white"
+            >
+              Avbryt
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={loading} 
+              className="min-w-[150px] bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Oppretter...
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Opprett konkurranse
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
     </Dialog>
   )
 }
-

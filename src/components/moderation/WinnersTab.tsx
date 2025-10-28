@@ -3,16 +3,20 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Submission } from '@/types'
-import { Box, Typography, Card, CardContent, Chip, CircularProgress, Paper } from '@mui/material'
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { Copy, CheckCircle2, Trophy } from 'lucide-react'
 
 interface WinnersTabProps {
   contestId?: string | null
+  selectedContest?: string | null
+  allContests?: any[]
 }
 
-export default function WinnersTab({ contestId = null }: WinnersTabProps) {
-  const [submissions, setSubmissions] = useState<Submission[]>([])
+export default function WinnersTab({ contestId, selectedContest, allContests }: WinnersTabProps) {
+  const [winners, setWinners] = useState<Submission[]>([])
   const [loading, setLoading] = useState(true)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const supabase = createClient()
@@ -26,25 +30,22 @@ export default function WinnersTab({ contestId = null }: WinnersTabProps) {
     try {
       let query = supabase
         .from('submissions')
-        .select(`
-          *,
-          submitter:profiles(*)
-        `)
+        .select('*')
         .eq('status', 'WINNER')
-      
-      // Filter by contest if specified
+        .order('created_at', { ascending: false })
+
       if (contestId) {
         query = query.eq('contest_id', contestId)
       }
-      
-      const { data, error } = await query.order('created_at', { ascending: false })
+
+      const { data, error } = await query
 
       if (error) {
         console.error('Error fetching winners:', error)
-        return
+        setWinners([])
+      } else {
+        setWinners(data || [])
       }
-
-      setSubmissions(data || [])
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -52,190 +53,76 @@ export default function WinnersTab({ contestId = null }: WinnersTabProps) {
     }
   }
 
-  const copyToClipboard = async (text: string, id: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopiedId(id)
-      setTimeout(() => setCopiedId(null), 2000)
-    } catch (error) {
-      console.error('Failed to copy:', error)
-    }
+  const handleCopy = (id: string) => {
+    navigator.clipboard.writeText(id)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" color="text.secondary" sx={{ mt: 3 }}>
-          Loading winners...
-        </Typography>
-      </Box>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Spinner size="lg" />
+        <p className="mt-6 text-lg text-slate-400">Laster inn vinnere...</p>
+      </div>
     )
   }
 
   return (
-    <Box>
-      <Box sx={{ mb: 4 }}>
-        <Typography 
-          variant="h4" 
-          fontWeight={800} 
-          gutterBottom
-          sx={{
-            background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)',
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
-        >
-          🏆 Winner Submissions
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-          All videos marked as winners - ready for sub alerts
-        </Typography>
-      </Box>
+    <div>
+      <div className="mb-6">
+        <h2 className="text-3xl font-extrabold mb-2 flex items-center gap-2">
+          <Trophy className="h-8 w-8 text-white" />
+          <span className="text-white">Vinnere</span>
+        </h2>
+        <p className="text-slate-400 font-medium">
+          Vis og administrer vinner-innsendinger
+        </p>
+      </div>
 
-      {submissions.length === 0 ? (
-        <Card elevation={0} sx={{ bgcolor: 'rgba(26, 26, 46, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'center', py: 8 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>No winners yet</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Winners will appear here once marked by the streamer
-          </Typography>
+      {winners.length === 0 ? (
+        <Card className="border-slate-800 bg-slate-900/50 text-center py-12">
+          <div className="flex flex-col items-center gap-2">
+            <Trophy className="h-16 w-16 text-slate-400" />
+            <p className="text-slate-400">Ingen vinnere enda</p>
+          </div>
         </Card>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {submissions.map((submission) => (
-            <Card key={submission.id} elevation={0} sx={{ bgcolor: 'rgba(26, 26, 46, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 3 }}>
-                  {/* Thumbnail */}
-                  {submission.thumbnail_url && (
-                    <Box sx={{ flexShrink: 0 }}>
-                      <img
-                        src={submission.thumbnail_url}
-                        alt={submission.title}
-                        style={{ width: '192px', height: '144px', objectFit: 'cover', borderRadius: '8px' }}
-                      />
-                    </Box>
-                  )}
-
-                  {/* Details */}
-                  <Box sx={{ flex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', mb: 2 }}>
-                      <Box>
-                        <Typography variant="h6" fontWeight={700} gutterBottom>
-                          {submission.title}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'text.secondary', mb: 2 }}>
-                          <Chip label={submission.platform} size="small" sx={{ height: 24 }} />
-                          <Typography variant="body2">By: {submission.submitter?.username || 'Unknown'}</Typography>
-                          <Typography variant="body2">•</Typography>
-                          <Typography variant="body2">{new Date(submission.created_at).toLocaleDateString()}</Typography>
-                        </Box>
-                      </Box>
-                      <Chip 
-                        label="WINNER" 
-                        sx={{ bgcolor: 'warning.main', color: 'white', fontWeight: 700 }}
-                      />
-                    </Box>
-
-                    {/* Video URL */}
-                    <Paper sx={{ p: 2, mb: 2, bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid', borderColor: 'divider' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                          Video URL
-                        </Typography>
-                        <Box 
-                          onClick={() => copyToClipboard(submission.video_url, `url-${submission.id}`)}
-                          sx={{ 
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            color: 'primary.main',
-                            '&:hover': { opacity: 0.8 }
-                          }}
-                        >
-                          {copiedId === `url-${submission.id}` ? <CheckCircleIcon sx={{ fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
-                          <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                            {copiedId === `url-${submission.id}` ? 'Copied!' : 'Copy'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary', wordBreak: 'break-all' }}>
-                        {submission.video_url}
-                      </Typography>
-                    </Paper>
-
-                    {/* Video ID */}
-                    <Paper sx={{ p: 2, mb: 2, bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid', borderColor: 'divider' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                          Video ID (for embedding)
-                        </Typography>
-                        <Box 
-                          onClick={() => copyToClipboard(submission.video_id, `id-${submission.id}`)}
-                          sx={{ 
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            color: 'primary.main',
-                            '&:hover': { opacity: 0.8 }
-                          }}
-                        >
-                          {copiedId === `id-${submission.id}` ? <CheckCircleIcon sx={{ fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
-                          <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                            {copiedId === `id-${submission.id}` ? 'Copied!' : 'Copy'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary', wordBreak: 'break-all' }}>
-                        {submission.video_id}
-                      </Typography>
-                    </Paper>
-
-                    {/* Embed Link */}
-                    <Paper sx={{ p: 2, bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid', borderColor: 'divider' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                          Embed Link (for sub alert triggers)
-                        </Typography>
-                        <Box 
-                          onClick={() => copyToClipboard(
-                            submission.platform === 'YOUTUBE'
-                              ? `https://www.youtube.com/watch?v=${submission.video_id}`
-                              : `https://www.tiktok.com/@video/video/${submission.video_id}`,
-                            `embed-${submission.id}`
-                          )}
-                          sx={{ 
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            color: 'primary.main',
-                            '&:hover': { opacity: 0.8 }
-                          }}
-                        >
-                          {copiedId === `embed-${submission.id}` ? <CheckCircleIcon sx={{ fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
-                          <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                            {copiedId === `embed-${submission.id}` ? 'Copied!' : 'Copy'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary', wordBreak: 'break-all' }}>
-                        {submission.platform === 'YOUTUBE'
-                          ? `https://www.youtube.com/watch?v=${submission.video_id}`
-                          : `https://www.tiktok.com/@video/video/${submission.video_id}`}
-                      </Typography>
-                    </Paper>
-                  </Box>
-                </Box>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {winners.map((winner) => (
+            <Card key={winner.id} className="border-slate-800 bg-slate-900/50 hover:border-blue-600 transition-all duration-300">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Badge className="bg-yellow-600 text-white font-bold border-0">
+                    VINNER
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleCopy(winner.id)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {copiedId === winner.id ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                
+                <h3 className="font-bold text-lg mb-2 text-white">{winner.title}</h3>
+                <p className="text-sm text-slate-400 mb-3">
+                  {winner.submission_comment}
+                </p>
+                
+                <div className="text-xs text-slate-500">
+                  ID: {winner.id.substring(0, 8)}...
+                </div>
               </CardContent>
             </Card>
           ))}
-        </Box>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }
-

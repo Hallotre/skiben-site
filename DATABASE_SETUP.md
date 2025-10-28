@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.contests (
   description TEXT,
   status TEXT DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'ENDED')),
   submission_count INTEGER DEFAULT 0,
+  tags TEXT[] DEFAULT ARRAY[]::TEXT[],
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -118,6 +119,25 @@ CREATE POLICY "Admins can delete contests" ON public.contests FOR DELETE USING (
 -- Moderation logs: Viewable by moderators, created by moderators
 CREATE POLICY "Moderators can view logs" ON public.moderation_logs FOR SELECT USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('MODERATOR', 'STREAMER', 'ADMIN'));
 CREATE POLICY "Moderators can create logs" ON public.moderation_logs FOR INSERT WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('MODERATOR', 'STREAMER', 'ADMIN'));
+-- Contest tags lookup table
+CREATE TABLE IF NOT EXISTS public.contest_tags (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  color TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.contest_tags ENABLE ROW LEVEL SECURITY;
+-- Drop existing policies if re-running
+DROP POLICY IF EXISTS "Contest tags are viewable by everyone" ON public.contest_tags;
+DROP POLICY IF EXISTS "Admins can insert tags" ON public.contest_tags;
+DROP POLICY IF EXISTS "Admins can update tags" ON public.contest_tags;
+DROP POLICY IF EXISTS "Admins can delete tags" ON public.contest_tags;
+-- Policies
+CREATE POLICY "Contest tags are viewable by everyone" ON public.contest_tags FOR SELECT USING (true);
+CREATE POLICY "Admins can insert tags" ON public.contest_tags FOR INSERT WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
+CREATE POLICY "Admins can update tags" ON public.contest_tags FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
+CREATE POLICY "Admins can delete tags" ON public.contest_tags FOR DELETE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
 ```
 
 ### Step 3: Create Your First Admin User (Important!)

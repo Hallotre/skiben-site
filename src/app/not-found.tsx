@@ -1,91 +1,39 @@
 'use client'
 
 import Link from 'next/link'
-import { Box, Typography, Button, Card, CardContent } from '@mui/material'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 
 export default function NotFound() {
   return (
-    <Box 
-      sx={{ 
-        minHeight: '80vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0a0f1a 0%, #111827 100%)',
-        px: 4
-      }}
-    >
-      <Card sx={{ 
-          maxWidth: 500,
-          bgcolor: 'rgba(26, 26, 46, 0.6)',
-          border: '1px solid rgba(59, 130, 246, 0.2)',
-          textAlign: 'center',
-          p: 4
-        }}>
-          <CardContent>
+    <div className="flex items-center justify-center min-h-screen p-4">
+      <Card className="max-w-[500px] w-full bg-[rgba(26,26,46,0.6)] border border-blue-500/20 text-center">
+        <CardContent className="p-8">
           {/* Emote */}
-          <Box sx={{ mb: 3 }}>
-            <img 
+          <div className="mb-6">
+            <img
               src="https://cdn.7tv.app/emote/01K0PDSQ5E8SPAY3XHQ55JSP4N/4x.avif"
               alt="404 Error"
-              style={{ 
-                width: '600px',
-                height: '200px',
-                margin: '0 auto',
-                display: 'block'
-              }}
+              className="mx-auto block"
+              style={{ width: '600px', height: '200px' }}
             />
-          </Box>
+          </div>
 
           {/* Title */}
-          <Typography 
-            variant="h4" 
-            fontWeight={700}
-            gutterBottom
-            sx={{ color: 'white', mb: 2 }}
-          >
-            DÅRLIG DEKNING
-          </Typography>
+          <h2 className="text-3xl font-bold text-white mb-2">DÅRLIG DEKNING</h2>
 
           {/* Message */}
-          <Typography 
-            variant="body1" 
-            sx={{ color: '#94a3b8', mb: 4 }}
-          >
-            I SYLTE SATAN ASSÅ EG KJENNE EG SPYR!
-          </Typography>
+          <p className="text-slate-400 mb-3">I SYLTE SATAN ASSÅ EG KJENNE EG SPYR!</p>
+          <p className="text-slate-400 mb-6 text-sm">Du prøvde å nå en side som ikke eksisterer.</p>
 
           {/* Single Button */}
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Link href="/" style={{ textDecoration: 'none' }}>
-              <Button
-                variant="contained"
-                size="large"
-                sx={{
-                  background: 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)',
-                  color: 'white',
-                  fontWeight: 700,
-                  px: 4,
-                  py: 1.5,
-                  fontSize: '0.875rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px',
-                  whiteSpace: 'nowrap',
-                  boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.3)',
-                  borderRadius: 1,
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #1d4ed8 0%, #0891b2 100%)',
-                    boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.4)',
-                  }
-                }}
-              >
-                Tilbake til forsiden
-              </Button>
-            </Link>
-          </Box>
-          </CardContent>
-        </Card>
-      </Box>
+          <div className="flex justify-center">
+            <Button asChild className="bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-bold px-6 py-3 uppercase tracking-wider shadow-[0_4px_6px_-1px_rgba(37,99,235,0.3)] hover:from-blue-700 hover:to-cyan-600">
+              <Link href="/">Tilbake til forsiden</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
-

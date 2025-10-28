@@ -1,75 +1,61 @@
-'use client'
-
 import { useState, useEffect } from 'react'
-import { Box, SxProps } from '@mui/material'
 
 interface SeventvEmoteProps {
   emoteId: string
   size?: '1x' | '2x' | '3x' | '4x'
-  alt?: string
-  sx?: SxProps
-  onClick?: () => void
 }
 
-export default function SeventvEmote({ 
-  emoteId, 
-  size = '3x', 
-  alt = 'emote',
-  sx,
-  onClick
-}: SeventvEmoteProps) {
-  const [mounted, setMounted] = useState(false)
+const sizeMap = {
+  '1x': 28,
+  '2x': 56,
+  '3x': 84,
+  '4x': 112
+}
+
+export default function SeventvEmote({ emoteId, size = '2x' }: SeventvEmoteProps) {
+  const [imageUrl, setImageUrl] = useState('')
   const [error, setError] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    const loadImage = async () => {
+      try {
+        const url = `https://cdn.7tv.app/emote/${emoteId}/${size}.avif`
+        setImageUrl(url)
+        setError(false)
+      } catch (err) {
+        setError(true)
+      }
+    }
+    
+    loadImage()
+  }, [emoteId, size])
 
-  const emoteUrl = `https://cdn.7tv.app/emote/${emoteId}/${size}.avif`
-
-  // Convert size to pixel dimensions
-  const sizeMap: Record<string, string> = {
-    '1x': '28px',
-    '2x': '56px',
-    '3x': '112px',
-    '4x': '224px'
-  }
-
-  const pixelSize = sizeMap[size] || '112px'
-
-  // Prevent hydration mismatch - don't render img until mounted
-  if (!mounted) {
+  if (error) {
     return (
-      <Box
-        sx={{
-          width: pixelSize,
-          height: pixelSize,
-          ...sx
+      <div 
+        className="bg-gray-700 flex items-center justify-center"
+        style={{ 
+          width: sizeMap[size], 
+          height: sizeMap[size],
+          imageRendering: 'crisp-edges'
         }}
-      />
+      >
+        <span className="text-xs">?</span>
+      </div>
     )
   }
 
   return (
-    <Box
-      component="img"
-      src={emoteUrl}
-      alt={alt}
-      onClick={onClick}
-      onError={() => setError(true)}
-      sx={{
-        width: pixelSize,
-        height: pixelSize,
+    <img
+      src={imageUrl}
+      alt={`7tv emote ${emoteId}`}
+      className="inline-block"
+      style={{ 
+        width: sizeMap[size], 
+        height: sizeMap[size], 
         objectFit: 'contain',
-        cursor: onClick ? 'pointer' : 'default',
-        transition: 'transform 0.2s ease',
-        '&:hover': onClick ? {
-          transform: 'scale(1.1)',
-        } : {},
-        display: error ? 'none' : 'block',
-        ...sx
+        imageRendering: 'crisp-edges'
       }}
     />
   )
 }
-

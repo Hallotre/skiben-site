@@ -1,8 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import MUIAppBar from '@/components/layout/MUIAppBar'
-import MUIProvider from '@/providers/MUIProvider'
+import AppBar from '@/components/layout/AppBar'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -32,10 +31,8 @@ export default function RootLayout({
         }}
         suppressHydrationWarning
       >
-        <MUIProvider>
-          <MUIAppBar hideOnModeration />
-          {children}
-        </MUIProvider>
+        <AppBar hideOnModeration />
+        {children}
       </body>
     </html>
   )

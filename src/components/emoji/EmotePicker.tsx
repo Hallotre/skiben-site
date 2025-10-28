@@ -1,17 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  TextField,
-  Button,
-  Box,
-  Typography,
-  CircularProgress
-} from '@mui/material'
-import { Search } from '@mui/icons-material'
+import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Search } from 'lucide-react'
 import SeventvEmote from './SeventvEmote'
 
 interface EmotePickerProps {
@@ -45,92 +38,65 @@ export default function EmotePicker({ open, onClose, onSelect }: EmotePickerProp
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <TextField
-          fullWidth
-          placeholder="Search emotes or paste emote ID..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: <Search sx={{ mr: 1 }} />,
-          }}
-        />
-      </DialogTitle>
-      
-      <DialogContent>
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Popular Emotes
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1 }}>
-            {POPULAR_EMOTES.map((emote) => (
-              <Box
-                key={emote.id}
-                onClick={() => handleSelect(emote.id)}
-                sx={{
-                  p: 2,
-                  border: selectedEmote === emote.id ? '2px solid #2563eb' : '2px solid transparent',
-                  borderRadius: 2,
-                  cursor: 'pointer',
-                  '&:hover': {
-                    bgcolor: 'rgba(37, 99, 235, 0.1)',
-                  },
-                }}
-              >
-                <SeventvEmote emoteId={emote.id} size="3x" alt={emote.name} />
-                <Typography variant="caption" display="block" textAlign="center" sx={{ mt: 1 }}>
-                  {emote.name}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-
-        {searchQuery && (
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Custom Emote
-            </Typography>
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 2,
-              mt: 2,
-              p: 2,
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: 2,
-            }}>
-              <SeventvEmote emoteId={searchQuery} size="3x" alt="Custom emote" />
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body2">Emote ID: {searchQuery}</Typography>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => handleSelect(searchQuery)}
-                  sx={{ mt: 1 }}
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Select Emote</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search emotes or paste emote ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Popular Emotes</h3>
+            <div className="flex flex-wrap gap-3">
+              {POPULAR_EMOTES.map((emote) => (
+                <div
+                  key={emote.id}
+                  onClick={() => handleSelect(emote.id)}
+                  className={`
+                    p-3 rounded-lg cursor-pointer transition-all
+                    ${selectedEmote === emote.id 
+                      ? 'border-2 border-blue-600 bg-blue-600/10' 
+                      : 'border-2 border-transparent hover:bg-blue-600/5'
+                    }
+                  `}
                 >
-                  Select This
-                </Button>
-              </Box>
-            </Box>
-          </Box>
-        )}
+                  <SeventvEmote emoteId={emote.id} size="4x" />
+                  <p className="text-xs text-center mt-1 text-gray-400">{emote.name}</p>
+                </div>
+              ))}
+            </div>
+          </div>
 
-        <Box sx={{ display: 'flex', gap: 2, mt: 4, justifyContent: 'flex-end' }}>
-          <Button onClick={onClose} variant="outlined">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleConfirm}
-            variant="contained"
-            disabled={!selectedEmote}
-          >
-            Confirm
-          </Button>
-        </Box>
+          {searchQuery && (
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Search Results</h3>
+              <div className="flex flex-wrap gap-3">
+                {/* Search results would go here */}
+                <p className="text-gray-400 text-sm">Search functionality coming soon</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirm} disabled={!selectedEmote}>
+              Confirm
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
 }
-

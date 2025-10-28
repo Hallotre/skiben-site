@@ -3,7 +3,11 @@
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
 import { Profile } from '@/types'
-import { Button, Avatar, Box, Chip, CircularProgress } from '@mui/material'
+import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import { User } from 'lucide-react'
 
 interface LoginButtonProps {
   className?: string
@@ -68,64 +72,56 @@ export default function LoginButton({ className = '' }: LoginButtonProps) {
     if (error) console.error('Error signing out:', error)
   }
 
-  const getRoleColor = (role: string): 'error' | 'secondary' | 'warning' | 'default' => {
+  const getRoleColor = (role: string): string => {
     switch (role) {
-      case 'ADMIN': return 'error'
-      case 'STREAMER': return 'secondary'
-      case 'MODERATOR': return 'warning'
-      default: return 'default'
+      case 'ADMIN': return 'bg-red-600 text-white'
+      case 'STREAMER': return 'bg-purple-600 text-white'
+      case 'MODERATOR': return 'bg-orange-600 text-white'
+      default: return 'bg-blue-600 text-white'
     }
   }
 
   if (loading) {
-    return <CircularProgress size={24} />
+    return <Spinner size="sm" />
   }
 
   if (user && profile) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        {profile.avatar_url && (
-          <Avatar 
-            src={profile.avatar_url} 
-            alt={profile.username}
-            sx={{ width: 36, height: 36 }}
-          />
-        )}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box component="span" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>
+      <div className={`flex items-center gap-3 ${className}`}>
+        <Avatar className="h-9 w-9">
+          {profile.avatar_url ? (
+            <AvatarImage src={profile.avatar_url} alt={profile.username} />
+          ) : (
+            <AvatarFallback>
+              <User className="h-5 w-5" />
+            </AvatarFallback>
+          )}
+        </Avatar>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">
             {profile.username}
-          </Box>
-          <Chip 
-            label={profile.role} 
-            size="small" 
-            color={getRoleColor(profile.role)}
-            sx={{ fontSize: '0.75rem', height: '20px' }}
-          />
-        </Box>
+          </span>
+          <Badge className={getRoleColor(profile.role)}>
+            {profile.role}
+          </Badge>
+        </div>
         <Button 
           onClick={handleSignOut} 
-          variant="outlined" 
-          size="small"
-          sx={{ ml: 1 }}
+          variant="outline" 
+          size="sm"
         >
           Sign Out
         </Button>
-      </Box>
+      </div>
     )
   }
 
   return (
     <Button 
-      variant="contained"
       onClick={handleSignIn}
-      sx={{
-        backgroundColor: '#9146ff',
-        '&:hover': { backgroundColor: '#772ce8' },
-        boxShadow: '0 4px 14px 0 rgba(145, 70, 255, 0.2)'
-      }}
+      className="bg-[#9146ff] hover:bg-[#772ce8] text-white shadow-md shadow-purple-500/20"
     >
       Sign in with Twitch
     </Button>
   )
 }
-

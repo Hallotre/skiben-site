@@ -42,7 +42,7 @@ export default function Navigation() {
   const isModerator = profile?.role === 'MODERATOR' || profile?.role === 'STREAMER' || profile?.role === 'ADMIN'
 
   return (
-    <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-lg sticky top-0 z-50">
+    <header className="border-b border-slate-800 bg-slate-800/50 backdrop-blur-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -61,9 +61,12 @@ export default function Navigation() {
               <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500 group-hover:w-full transition-all duration-300" />
             </a>
             {!loading && isModerator && (
-              <a href="/moderation" className="text-blue-400 hover:text-blue-300 transition-colors font-medium flex items-center gap-2 group">
-                Dashboard
-                <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+              <a
+                href="/moderation"
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600/90 px-3 py-1.5 text-white shadow-lg shadow-blue-500/20 ring-1 ring-inset ring-blue-500/40 hover:bg-blue-500 transition-colors"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
+                <span className="font-medium">Dashboard</span>
               </a>
             )}
           </nav>

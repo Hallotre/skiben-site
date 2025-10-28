@@ -3,23 +3,28 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Profile, UserRole } from '@/types'
-import { Box, Typography, Card, CardContent, CircularProgress, Table, TableHead, TableBody, TableRow, TableCell, Chip, Button, Select, MenuItem } from '@mui/material'
-import { alpha } from '@mui/material/styles'
-import PersonIcon from '@mui/icons-material/Person'
-import BlockIcon from '@mui/icons-material/Block'
-import DeleteIcon from '@mui/icons-material/Delete'
+import { Card } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Spinner } from '@/components/ui/spinner'
+import { User, Ban, Trash2, Shield, Star, Eye, MoreVertical, Search } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 
 export default function UsersTab() {
   const [users, setUsers] = useState<Profile[]>([])
   const [currentUser, setCurrentUser] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'ALL' | UserRole>('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
   const supabase = createClient()
 
   useEffect(() => {
     fetchUsers()
     fetchCurrentUser()
-  }, [filter])
+  }, [filter, searchQuery])
 
   const fetchCurrentUser = async () => {
     try {
@@ -50,6 +55,10 @@ export default function UsersTab() {
         query = query.eq('role', filter)
       }
 
+      if (searchQuery) {
+        query = query.ilike('username', `%${searchQuery}%`)
+      }
+
       const { data, error } = await query
 
       if (error) {
@@ -65,10 +74,15 @@ export default function UsersTab() {
     }
   }
 
+  const isStreamer = currentUser?.role === 'STREAMER'
+  const isModerator = currentUser?.role === 'MODERATOR'
+
   const handleBanToggle = async (userId: string, currentlyBanned: boolean) => {
     const targetUser = users.find(u => u.id === userId)
-    if (targetUser && !isAdmin) {
-      if (targetUser.role === 'ADMIN') {
+    
+    // Check permissions based on role hierarchy
+    if (!isAdmin) {
+      if (targetUser?.role === 'ADMIN') {
         alert('Only admins can ban other admins')
         return
       }
@@ -93,13 +107,16 @@ export default function UsersTab() {
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     const targetUser = users.find(u => u.id === userId)
-    if (targetUser && !isAdmin) {
-      if (targetUser.role === 'ADMIN' || newRole === 'ADMIN') {
-        alert('Only admins can manage admin roles')
-        return
-      }
-      if (newRole === 'STREAMER' && currentUser?.role !== 'ADMIN') {
-        alert('Only admins can assign streamer role')
+    
+    // Enforce role hierarchy - only ADMIN can change roles
+    if (!isAdmin) {
+      alert('Only admins can change user roles')
+      return
+    }
+    
+    // Additional protection for admin role assignment
+    if (newRole === 'ADMIN' || targetUser?.role === 'ADMIN') {
+      if (!confirm('Are you sure you want to change ADMIN role? This is a sensitive operation.')) {
         return
       }
     }
@@ -143,219 +160,207 @@ export default function UsersTab() {
     }
   }
 
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'ADMIN': return <Shield className="h-4 w-4" />
+      case 'STREAMER': return <Star className="h-4 w-4" />
+      case 'MODERATOR': return <User className="h-4 w-4" />
+      default: return <Eye className="h-4 w-4" />
+    }
+  }
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'ADMIN': return 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+      case 'STREAMER': return 'bg-pink-500/20 text-pink-400 border-pink-500/30'
+      case 'MODERATOR': return 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+      default: return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+    }
+  }
+
   const isAdmin = currentUser?.role === 'ADMIN'
-  const isStreamer = currentUser?.role === 'STREAMER'
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" color="text.secondary" sx={{ mt: 3 }}>
-          Loading users...
-        </Typography>
-      </Box>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Spinner size="lg" />
+        <p className="mt-6 text-lg text-slate-400">
+          Laster inn brukerdata...
+        </p>
+      </div>
     )
   }
 
   return (
-    <Box>
-      <Box sx={{ mb: 4 }}>
-        <Typography 
-          variant="h4" 
-          fontWeight={800} 
-          gutterBottom
-          sx={{
-            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
-        >
-          👥 User Management
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-          Manage user accounts and permissions
-        </Typography>
-      </Box>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight text-white">Brukeradministrasjon</h2>
+        <p className="text-slate-400 mt-2">
+          Administrer brukerkontoer og rettigheter på plattformen
+        </p>
+      </div>
 
-      {/* Filter */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {(['ALL', 'VIEWER', 'MODERATOR', 'STREAMER', 'ADMIN'] as const).map((role) => (
-            <Chip
-              key={role}
-              label={role}
-              onClick={() => setFilter(role)}
-              clickable
-              sx={{
-                bgcolor: filter === role ? 'primary.main' : 'rgba(255, 255, 255, 0.05)',
-                color: filter === role ? 'white' : 'text.secondary',
-                fontWeight: filter === role ? 700 : 500,
-                '&:hover': {
-                  bgcolor: filter === role ? 'primary.dark' : 'rgba(255, 255, 255, 0.1)',
-                },
-              }}
+      {/* Search and Filters */}
+      <Card className="border-slate-800 bg-slate-900/50">
+        <div className="p-6 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Søk etter brukere..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
-          ))}
-        </Box>
-      </Box>
+          </div>
 
-      {/* Users List */}
+          <div className="flex gap-2 flex-wrap">
+            {(['ALL', 'VIEWER', 'MODERATOR', 'STREAMER', 'ADMIN'] as const).map((role) => (
+              <Button
+                key={role}
+                variant={filter === role ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilter(role)}
+                className={filter === role ? '' : 'border-slate-700'}
+              >
+                {role === 'ALL' && 'ALLE'}
+                {role === 'VIEWER' && 'SEER'}
+                {role === 'MODERATOR' && 'MODERATOR'}
+                {role === 'STREAMER' && 'STREAMER'}
+                {role === 'ADMIN' && 'ADMIN'}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* Users Table */}
       {users.length === 0 ? (
-        <Card elevation={0} sx={{ bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid', borderColor: 'divider', textAlign: 'center', py: 8 }}>
-          <Typography variant="h6" color="text.secondary">No users found</Typography>
+        <Card className="border-slate-800 bg-slate-900/50 text-center py-12">
+          <div className="flex flex-col items-center gap-2">
+            <div className="p-4 rounded-full bg-slate-800">
+              <User className="h-8 w-8 text-slate-400" />
+            </div>
+            <p className="text-slate-400">Ingen brukere funnet</p>
+          </div>
         </Card>
       ) : (
-        <Card elevation={0} sx={{ bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
-          <Box sx={{ overflowX: 'auto' }}>
+        <Card className="border-slate-800 bg-slate-900/50 overflow-hidden">
+          <div className="overflow-x-auto">
             <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>User</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Role</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Joined</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Actions</TableCell>
+              <TableHeader>
+                <TableRow className="border-slate-800">
+                  <TableHead className="font-semibold text-slate-300">Bruker</TableHead>
+                  <TableHead className="font-semibold text-slate-300">Rolle</TableHead>
+                  <TableHead className="font-semibold text-slate-300">Status</TableHead>
+                  <TableHead className="font-semibold text-slate-300">Ble med</TableHead>
+                  {isAdmin && <TableHead className="font-semibold text-right text-slate-300">Handlinger</TableHead>}
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {users.map((user) => (
-                  <TableRow key={user.id} sx={{ '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.02)' } }}>
+                  <TableRow key={user.id} className="border-slate-800 hover:bg-slate-800/50">
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        {user.avatar_url ? (
-                          <img
-                            src={user.avatar_url}
-                            alt={user.username}
-                            style={{ width: 40, height: 40, borderRadius: '50%' }}
-                          />
-                        ) : (
-                          <PersonIcon sx={{ fontSize: 40, color: 'text.secondary' }} />
-                        )}
-                        <Box>
-                          <Typography variant="body2" fontWeight={600}>{user.username}</Typography>
-                          <Typography variant="caption" color="text.secondary">{user.twitch_id}</Typography>
-                        </Box>
-                      </Box>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          {user.avatar_url ? (
+                            <AvatarImage src={user.avatar_url} alt={user.username} />
+                          ) : (
+                            <AvatarFallback>
+                              <User className="h-5 w-5" />
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-white">{user.username}</p>
+                          <p className="text-sm text-slate-400">{user.twitch_id}</p>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {isAdmin ? (
                         <Select
                           value={user.role}
-                          onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                          size="small"
-                          sx={{ 
-                            minWidth: 120,
-                            bgcolor: 'rgba(255, 255, 255, 0.05)',
-                            color: 'white',
-                            '& .MuiOutlinedInput-notchedOutline': {
-                              borderColor: 'rgba(255, 255, 255, 0.1)',
-                            },
-                            '&:hover .MuiOutlinedInput-notchedOutline': {
-                              borderColor: 'rgba(255, 255, 255, 0.2)',
-                            },
-                          }}
-                          disabled={!isAdmin && user.role === 'ADMIN'}
+                          onValueChange={(value) => handleRoleChange(user.id, value)}
                         >
-                          <MenuItem value="VIEWER">Viewer</MenuItem>
-                          <MenuItem value="MODERATOR">Moderator</MenuItem>
-                          <MenuItem value="STREAMER">Streamer</MenuItem>
-                          {isAdmin && <MenuItem value="ADMIN">Admin</MenuItem>}
+                          <SelectTrigger className="min-w-[120px] bg-slate-800 border-slate-700 text-white hover:bg-slate-700">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-900 border-slate-800">
+                            <SelectItem value="VIEWER">
+                              <span className="text-white">Seer</span>
+                            </SelectItem>
+                            <SelectItem value="MODERATOR">
+                              <span className="text-white">Moderator</span>
+                            </SelectItem>
+                            <SelectItem value="STREAMER">
+                              <span className="text-white">Streamer</span>
+                            </SelectItem>
+                            <SelectItem value="ADMIN">
+                              <span className="text-white">Admin</span>
+                            </SelectItem>
+                          </SelectContent>
                         </Select>
                       ) : (
-                        <Chip 
-                          label={user.role} 
-                          size="small"
-                          sx={{
-                            bgcolor: alpha('#6366f1', 0.2),
-                            color: '#6366f1',
-                            fontWeight: 600,
-                          }}
-                        />
+                        <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
+                          <div className="flex items-center gap-1.5">
+                            {getRoleIcon(user.role)}
+                            {user.role}
+                          </div>
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Chip 
-                          label={user.role} 
-                          size="small"
-                          sx={{
-                            bgcolor: 
-                              user.role === 'ADMIN' ? alpha('#a855f7', 0.2) :
-                              user.role === 'STREAMER' ? alpha('#ec4899', 0.2) :
-                              user.role === 'MODERATOR' ? alpha('#f59e0b', 0.2) :
-                              alpha('#3b82f6', 0.2),
-                            color: 
-                              user.role === 'ADMIN' ? '#a855f7' :
-                              user.role === 'STREAMER' ? '#ec4899' :
-                              user.role === 'MODERATOR' ? '#f59e0b' :
-                              '#3b82f6',
-                            fontWeight: 600,
-                          }}
-                        />
-                        <Chip 
-                          label={user.is_banned ? 'Banned' : 'Active'} 
-                          size="small"
-                          icon={user.is_banned ? <BlockIcon /> : undefined}
-                          sx={{
-                            bgcolor: user.is_banned ? alpha('#ef4444', 0.2) : alpha('#22c55e', 0.2),
-                            color: user.is_banned ? '#ef4444' : '#22c55e',
-                            fontWeight: 600,
-                          }}
-                        />
-                      </Box>
+                      <div className="flex gap-2">
+                        <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
+                          {user.role}
+                        </Badge>
+                        <Badge variant={user.is_banned ? 'destructive' : 'default'} className={user.is_banned ? '' : 'bg-green-500/20 text-green-400 border-green-500/30'}>
+                          {user.is_banned ? (
+                            <>
+                              <Ban className="h-3 w-3 mr-1" />
+                              Utestengt
+                            </>
+                          ) : (
+                            'Aktiv'
+                          )}
+                        </Badge>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">
+                      <p className="text-sm text-slate-400">
                         {new Date(user.created_at).toLocaleDateString()}
-                      </Typography>
+                      </p>
                     </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        {isAdmin && (
+                    {isAdmin && (
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
                           <Button
-                            variant="contained"
-                            size="small"
+                            size="sm"
+                            variant="outline"
                             onClick={() => handleBanToggle(user.id, user.is_banned)}
-                            sx={{
-                              bgcolor: user.is_banned ? '#22c55e' : '#ef4444',
-                              '&:hover': {
-                                bgcolor: user.is_banned ? '#16a34a' : '#dc2626',
-                              },
-                            }}
-                            disabled={!isAdmin && user.role === 'ADMIN'}
+                            className={user.is_banned ? 'border-green-600 text-green-500 hover:bg-green-500/10' : 'border-red-600 text-red-500 hover:bg-red-500/10'}
                           >
-                            {user.is_banned ? 'Unban' : 'Ban'}
+                            <Ban className="h-4 w-4 mr-1" />
+                            {user.is_banned ? 'Opphev utestengelse' : 'Utesteng'}
                           </Button>
-                        )}
-                        {isAdmin && (
                           <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<DeleteIcon />}
+                            size="sm"
+                            variant="outline"
                             onClick={() => handleDeleteUser(user.id)}
-                            sx={{
-                              borderColor: '#ef4444',
-                              color: '#ef4444',
-                              '&:hover': {
-                                borderColor: '#dc2626',
-                                bgcolor: alpha('#ef4444', 0.1),
-                              },
-                            }}
+                            className="border-red-600 text-red-500 hover:bg-red-500/10"
                           >
-                            Delete
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        )}
-                      </Box>
-                    </TableCell>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </Box>
+          </div>
         </Card>
       )}
-    </Box>
+    </div>
   )
 }
-

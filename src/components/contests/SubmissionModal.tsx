@@ -3,8 +3,14 @@
 import { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Contest } from '@/types'
-import { Dialog, DialogTitle, DialogContent, TextField, Button, Box, Typography, Select, MenuItem, FormControl, InputLabel, Alert, IconButton, Stack } from '@mui/material'
-import { Close } from '@mui/icons-material'
+import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { X } from 'lucide-react'
 
 interface SubmissionModalProps {
   contest: Contest
@@ -91,296 +97,141 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
   }
 
   return (
-    <Dialog 
-      open={true} 
-      onClose={onClose} 
-      maxWidth={false}
-      PaperProps={{
-        sx: {
-          bgcolor: 'rgb(8, 8, 8)',
-          border: '1px solid rgba(59, 130, 246, 0.2)',
-          borderRadius: 2,
-          maxWidth: '400px',
-          width: '400px',
-        }
-      }}
-    >
-      <DialogTitle sx={{ textAlign: 'center', pb: 1, pt: 2 }}>
-        <Box>
-          <Typography variant="h2" component="div" sx={{ fontWeight: 700, color: 'white', mb: 0.5, fontSize: '1.75rem' }}>
-            SHIBEN
-          </Typography>
-          <Typography component="div" sx={{ color: 'white', fontSize: '0.75rem', mb: 0.5 }}>
-            CONTEST ID: {contest.display_number || contest.id.substring(0, 8)}
-          </Typography>
-          <Typography component="div" sx={{ color: 'white', fontWeight: 700, fontSize: '0.875rem' }}>
-            {contest.title}
-          </Typography>
-        </Box>
-      </DialogTitle>
-      
-      <DialogContent sx={{ textAlign: 'center' }}>
-        {/* SUBMISSION Heading */}
-        <Typography 
-          variant="h5" 
-          component="div"
-          sx={{ 
-            color: 'white', 
-            fontWeight: 700, 
-            mb: 2,
-            fontSize: '1.5rem',
-            textTransform: 'uppercase',
-            letterSpacing: '1px'
-          }}
-        >
-          SUBMISSION
-        </Typography>
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="bg-[rgb(8,8,8)] border border-blue-500/20 rounded-lg max-w-[400px] w-[400px] p-6">
+        <DialogHeader>
+          <DialogTitle className="text-center pb-1 pt-2">
+            <div>
+                     <h2 className="font-bold text-white mb-1 text-3xl">
+                     SHIBEN
+                   </h2>
+                     <p className="text-white text-xs mb-1">
+                     KONKURRANSE-ID: {contest.display_number || contest.id.substring(0, 8)}
+                   </p>
+              <p className="text-white font-bold text-sm">
+                {contest.title}
+              </p>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="text-center mt-2">
+          {/* SUBMISSION Heading */}
+               <h3 className="text-white font-bold mb-4 text-2xl uppercase tracking-wider">
+                 INNSENDING
+               </h3>
 
-        <form onSubmit={handleSubmit}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="Title"
-              required
-              fullWidth
-              variant="outlined"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              autoFocus
-              InputLabelProps={{
-                sx: { color: 'white', fontWeight: 500, fontSize: '0.95rem' }
-              }}
-              InputProps={{
-                sx: {
-                  color: 'white',
-                  bgcolor: 'rgb(18, 18, 18)',
-                  borderRadius: 1,
-                  '& fieldset': {
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'white',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'white',
-                  },
-                }
-              }}
-            />
+          <form onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-4">
+              <div>
+                <Label htmlFor="title" className="text-white font-medium text-sm mb-2 block">
+                       Tittel
+                </Label>
+                <Input
+                  id="title"
+                  required
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  autoFocus
+                  className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:border-white/30 focus:border-white/50"
+                  placeholder="Enter title"
+                />
+              </div>
 
-            <FormControl fullWidth required>
-              <InputLabel sx={{ color: 'white', fontWeight: 500 }}>Source</InputLabel>
-              <Select
-                value={formData.source}
-                label="Source *"
-                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                sx={{
-                  color: 'white',
-                  bgcolor: 'rgb(18, 18, 18)',
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: 'primary.main',
-                  },
-                  '& .MuiSelect-icon': {
-                    color: 'white',
-                  },
-                }}
-                MenuProps={{
-                  PaperProps: {
-                    sx: {
-                      bgcolor: '#282828',
-                    },
-                  },
-                }}
-              >
-                <MenuItem value="YOUTUBE" sx={{ color: 'white' }}>YouTube</MenuItem>
-                <MenuItem value="TIKTOK" sx={{ color: 'white' }}>TikTok</MenuItem>
-              </Select>
-            </FormControl>
+              <div>
+                <Label htmlFor="source" className="text-white font-medium text-sm mb-2 block">
+                       Kilde *
+                </Label>
+                <Select
+                  value={formData.source}
+                  onValueChange={(value) => setFormData({ ...formData, source: value })}
+                >
+                  <SelectTrigger className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md hover:border-white/30 focus:border-white/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#282828] border-white/20">
+                         <SelectItem value="YOUTUBE">YouTube</SelectItem>
+                         <SelectItem value="TIKTOK">TikTok</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <TextField
-              label="Link"
-              required
-              fullWidth
-              variant="outlined"
-              value={formData.link}
-              onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-              placeholder="https://youtube.com/watch?v=..."
-              InputLabelProps={{
-                sx: { color: 'white', fontWeight: 500, fontSize: '0.95rem' }
-              }}
-              InputProps={{
-                sx: {
-                  color: 'white',
-                  bgcolor: 'rgb(18, 18, 18)',
-                  borderRadius: 1,
-                  '& fieldset': {
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'white',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'white',
-                  },
-                }
-              }}
-            />
+              <div>
+                <Label htmlFor="link" className="text-white font-medium text-sm mb-2 block">
+                       Lenke
+                </Label>
+                <Input
+                  id="link"
+                  required
+                  value={formData.link}
+                  onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                  placeholder="https://youtube.com/watch?v=..."
+                  className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:border-white/30 focus:border-white/50"
+                />
+              </div>
 
-            <TextField
-              label="Start Timestamp"
-              required
-              fullWidth
-              variant="filled"
-              value={formData.startTimestamp}
-              onChange={(e) => setFormData({ ...formData, startTimestamp: e.target.value })}
-              placeholder="0:15"
-              InputLabelProps={{
-                sx: { color: 'white', fontWeight: 500, fontSize: '0.95rem' }
-              }}
-              InputProps={{
-                sx: {
-                  color: 'white',
-                  bgcolor: 'rgb(18, 18, 18) !important',
-                  borderRadius: 1,
-                  '&:hover': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                  '&.Mui-focused': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                }
-              }}
-              sx={{
-                '& .MuiFilledInput-root': {
-                  bgcolor: 'rgb(18, 18, 18) !important',
-                  '&:hover': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                  '&.Mui-focused': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                }
-              }}
-            />
+              <div>
+                <Label htmlFor="startTimestamp" className="text-white font-medium text-sm mb-2 block">
+                       Starttidspunkt
+                </Label>
+                <Input
+                  id="startTimestamp"
+                  required
+                  value={formData.startTimestamp}
+                  onChange={(e) => setFormData({ ...formData, startTimestamp: e.target.value })}
+                  placeholder="0:15"
+                  className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:bg-[rgb(24,24,24)] focus:bg-[rgb(24,24,24)]"
+                />
+              </div>
 
-            <TextField
-              label="End Timestamp"
-              required
-              fullWidth
-              variant="filled"
-              value={formData.endTimestamp}
-              onChange={(e) => setFormData({ ...formData, endTimestamp: e.target.value })}
-              placeholder="0:30"
-              InputLabelProps={{
-                sx: { color: 'white', fontWeight: 500, fontSize: '0.95rem' }
-              }}
-              InputProps={{
-                sx: {
-                  color: 'white',
-                  bgcolor: 'rgb(18, 18, 18) !important',
-                  borderRadius: 1,
-                  '&:hover': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                  '&.Mui-focused': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                }
-              }}
-              sx={{
-                '& .MuiFilledInput-root': {
-                  bgcolor: 'rgb(18, 18, 18) !important',
-                  '&:hover': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                  '&.Mui-focused': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                }
-              }}
-            />
+              <div>
+                <Label htmlFor="endTimestamp" className="text-white font-medium text-sm mb-2 block">
+                       Sluttidspunkt
+                </Label>
+                <Input
+                  id="endTimestamp"
+                  required
+                  value={formData.endTimestamp}
+                  onChange={(e) => setFormData({ ...formData, endTimestamp: e.target.value })}
+                  placeholder="0:30"
+                  className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:bg-[rgb(24,24,24)] focus:bg-[rgb(24,24,24)]"
+                />
+              </div>
 
-            <TextField
-              label="Comment"
-              fullWidth
-              multiline
-              rows={4}
-              variant="filled"
-              value={formData.comment}
-              onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
-              InputLabelProps={{
-                sx: { color: 'white', fontWeight: 500, fontSize: '0.95rem' }
-              }}
-              InputProps={{
-                sx: {
-                  color: 'white',
-                  bgcolor: 'rgb(18, 18, 18) !important',
-                  borderRadius: 1,
-                  '&:hover': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                  '&.Mui-focused': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                }
-              }}
-              sx={{
-                '& .MuiFilledInput-root': {
-                  bgcolor: 'rgb(18, 18, 18) !important',
-                  '&:hover': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                  '&.Mui-focused': {
-                    bgcolor: 'rgb(24, 24, 24) !important',
-                  },
-                }
-              }}
-            />
+              <div>
+                <Label htmlFor="comment" className="text-white font-medium text-sm mb-2 block">
+                       Kommentar
+                </Label>
+                <Textarea
+                  id="comment"
+                  value={formData.comment}
+                  onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
+                  rows={4}
+                  className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:bg-[rgb(24,24,24)] focus:bg-[rgb(24,24,24)]"
+                />
+              </div>
 
-            {error && (
-              <Box sx={{ bgcolor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: 1, p: 2 }}>
-                <Typography variant="body2" color="error.main" sx={{ fontWeight: 600 }}>
-                  {error}
-                </Typography>
-              </Box>
-            )}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription className="font-semibold">
+                    {error}
+                  </AlertDescription>
+                </Alert>
+              )}
 
-            <Box sx={{ pt: 2 }}>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={loading}
-                fullWidth
-                sx={{
-                  bgcolor: 'rgba(255, 255, 255, 0.1)',
-                  color: 'white',
-                  py: 1.5,
-                  fontSize: '0.875rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '2px',
-                  borderRadius: 1,
-                  '&:hover': {
-                    bgcolor: 'rgba(255, 255, 255, 0.15)',
-                  },
-                  '&:disabled': {
-                    bgcolor: 'rgba(255, 255, 255, 0.05)',
-                    color: 'rgba(255, 255, 255, 0.4)',
-                  },
-                }}
-              >
-                {loading ? 'SUBMITTING...' : 'SUBMIT'}
-              </Button>
-            </Box>
-          </Box>
-        </form>
+              <div className="pt-2">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-white/10 text-white w-full py-3 text-sm font-bold uppercase tracking-wider rounded-md hover:bg-white/15 disabled:bg-white/5 disabled:text-white/40"
+                >
+                         {loading ? 'SENDER…' : 'SEND INN'}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   )
 }
-

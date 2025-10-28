@@ -61,7 +61,15 @@ export interface Contest {
   status: 'ACTIVE' | 'INACTIVE' | 'ENDED'
   submission_count: number
   display_number?: number
+  tags?: string[]
   created_at: string
   updated_at: string
+}
+
+export interface ContestTag {
+  id: string
+  name: string
+  color?: string
+  created_at: string
 }
 

@@ -3,9 +3,14 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Contest } from '@/types'
-import { Container, Typography, Card, CardContent, Box, Chip, Button, CircularProgress, Stack } from '@mui/material'
-import { Event, Description } from '@mui/icons-material'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import { Calendar } from 'lucide-react'
 import SubmissionModal from '@/components/contests/SubmissionModal'
+
+const supabase = createClient()
 
 export default function ContestsPage() {
   const [contests, setContests] = useState<Contest[]>([])
@@ -44,109 +49,84 @@ export default function ContestsPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" color="text.secondary" sx={{ mt: 3 }}>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Spinner size="lg" />
+        <p className="mt-6 text-lg text-gray-400">
           Loading contests...
-        </Typography>
-      </Box>
+        </p>
+      </div>
     )
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 8 }}>
-      <Box sx={{ mb: 6 }}>
-        <Typography variant="h3" fontWeight={700} gutterBottom>
-          Active Contests
-        </Typography>
-        <Typography variant="h6" color="text.secondary">
-          Submit your videos to compete
-        </Typography>
-      </Box>
+    <div className="max-w-4xl mx-auto px-10 py-8">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold mb-2">Active Contests</h1>
+        <p className="text-gray-400 text-xl">Submit your videos to compete</p>
+      </div>
       
       {contests.length === 0 ? (
-        <Card sx={{ textAlign: 'center', py: 8 }}>
+        <Card className="text-center py-8">
           <CardContent>
-            <Typography variant="h1" sx={{ mb: 2, opacity: 0.5 }}>🎯</Typography>
-            <Typography variant="h5" fontWeight={600} gutterBottom>
-              No active contests
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
+            <div className="text-7xl mb-4 opacity-50">🎯</div>
+            <h2 className="text-xl font-semibold mb-2">No active contests</h2>
+            <p className="text-gray-500">
               Check back soon for new contest opportunities!
-            </Typography>
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <Stack spacing={3}>
+        <div className="flex flex-col gap-4">
           {contests.map((contest) => (
             <Card 
               key={contest.id} 
-              sx={{ 
-                '&:hover': {
-                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.4)',
-                  transform: 'translateY(-2px)',
-                },
-                transition: 'all 0.3s',
-              }}
+              className="transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
             >
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 3 }}>
-                  <Box sx={{ flex: 1 }}>
-                    <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: 'wrap' }}>
-                      <Chip
-                        label={contest.status}
-                        size="small"
-                        sx={{
-                          background: 'linear-gradient(135deg, #ef4444 0%, #ec4899 100%)',
-                          color: 'white',
-                          fontWeight: 700,
-                          boxShadow: '0 10px 15px -3px rgba(239, 68, 68, 0.3)',
-                        }}
-                      />
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-                        <Event fontSize="small" />
-                        <Typography variant="body2">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start gap-6">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-3 flex-wrap">
+                      <Badge className="bg-gradient-to-r from-red-600 to-pink-600 text-white font-bold">
+                        {contest.status}
+                      </Badge>
+                      <div className="flex items-center gap-1 text-gray-400 text-sm">
+                        <Calendar className="h-4 w-4" />
+                        <span>
                           {new Date(contest.created_at).toLocaleDateString('en-US', { 
                             year: 'numeric', 
                             month: 'long', 
                             day: 'numeric' 
                           })}
-                        </Typography>
-                      </Box>
-                    </Stack>
+                        </span>
+                      </div>
+                    </div>
 
-                    <Typography variant="h4" fontWeight={700} gutterBottom>
+                    <h3 className="text-2xl font-bold mb-3">
                       {contest.title}
-                    </Typography>
+                    </h3>
 
-                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                    <p className="text-gray-400 mb-4">
                       {contest.description}
-                    </Typography>
+                    </p>
 
-                    <Chip
-                      label={`${contest.submission_count} submissions`}
-                      variant="outlined"
-                      sx={{
-                        borderColor: '#334155',
-                        color: 'text.secondary',
-                      }}
-                    />
-                  </Box>
+                    <Badge variant="outline" className="border-gray-600">
+                      {contest.submission_count} submissions
+                    </Badge>
+                  </div>
 
                   {contest.status === 'ACTIVE' && (
                     <Button
-                      variant="contained"
-                      size="large"
+                      size="lg"
                       onClick={() => setSelectedContest(contest)}
                     >
                       Submit
                     </Button>
                   )}
-                </Box>
+                </div>
               </CardContent>
             </Card>
           ))}
-        </Stack>
+        </div>
       )}
 
       {/* Submission Modal */}
@@ -157,7 +137,6 @@ export default function ContestsPage() {
           onSubmitSuccess={handleSubmitSuccess}
         />
       )}
-    </Container>
+    </div>
   )
 }
-

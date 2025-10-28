@@ -1,35 +1,11 @@
 'use client'
 
-import { useState, useEffect, ReactNode } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import {
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  CircularProgress,
-  Grid,
-  Paper,
-  Divider,
-  Chip,
-  alpha,
-  IconButton,
-} from '@mui/material'
-import {
-  VideoLibrary as VideoLibraryIcon,
-  AccessTime as TimeIcon,
-  CheckCircle as CheckIcon,
-  Cancel as CancelIcon,
-  EmojiEvents as TrophyIcon,
-  People as PeopleIcon,
-  Shield as ShieldIcon,
-  Star as StarIcon,
-  AdminPanelSettings as AdminIcon,
-  Block as BlockIcon,
-  TrendingUp as TrendingUpIcon,
-  ArrowForward as ArrowForwardIcon,
-} from '@mui/icons-material'
-import Link from 'next/link'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Spinner } from '@/components/ui/spinner'
+import { Video, Clock, CheckCircle, XCircle, Trophy, Users, Shield, Star, Ban } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
 interface SubmissionStats {
   total: number
@@ -49,10 +25,11 @@ interface UserStats {
 }
 
 interface DashboardOverviewProps {
-  contestId?: string | null
+  selectedContest: string | null
+  allContests: any[]
 }
 
-export default function DashboardOverview({ contestId = null }: DashboardOverviewProps) {
+export default function DashboardOverview({ selectedContest, allContests }: DashboardOverviewProps) {
   const [stats, setStats] = useState<SubmissionStats>({
     total: 0,
     unapproved: 0,
@@ -68,53 +45,65 @@ export default function DashboardOverview({ contestId = null }: DashboardOvervie
     admins: 0,
     banned: 0
   })
+  const [contestData, setContestData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
     fetchStats()
-  }, [contestId])
+  }, [selectedContest])
 
   const fetchStats = async () => {
     try {
-      // Fetch submission stats
       let query = supabase
         .from('submissions')
         .select('status')
       
-      // Filter by contest if specified
-      if (contestId) {
-        query = query.eq('contest_id', contestId)
+      if (selectedContest && selectedContest !== 'all') {
+        query = query.eq('contest_id', selectedContest)
       }
       
-      const { data: submissions, error: subError } = await query
+      const { data: submissions } = await query
 
-      if (!subError && submissions) {
-        const stats: SubmissionStats = {
+      if (submissions) {
+        setStats({
           total: submissions.length,
           unapproved: submissions.filter(s => s.status === 'UNAPPROVED').length,
           approved: submissions.filter(s => s.status === 'APPROVED').length,
           denied: submissions.filter(s => s.status === 'DENIED').length,
           winners: submissions.filter(s => s.status === 'WINNER').length
-        }
-        setStats(stats)
+        })
       }
 
-      // Fetch user stats
-      const { data: profiles, error: profileError } = await supabase
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('role, is_banned')
 
-      if (!profileError && profiles) {
-        const stats: UserStats = {
+      if (profiles) {
+        setUserStats({
           total: profiles.length,
           viewers: profiles.filter(p => p.role === 'VIEWER' && !p.is_banned).length,
           moderators: profiles.filter(p => p.role === 'MODERATOR' && !p.is_banned).length,
           streamers: profiles.filter(p => p.role === 'STREAMER' && !p.is_banned).length,
           admins: profiles.filter(p => p.role === 'ADMIN' && !p.is_banned).length,
           banned: profiles.filter(p => p.is_banned).length
-        }
-        setUserStats(stats)
+        })
+      }
+
+      // Fetch contest performance data
+      const { data: contests } = await supabase
+        .from('contests')
+        .select('*, submission_count:submissions(count)')
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      if (contests) {
+        const performanceData = contests.map(contest => ({
+          name: contest.title?.substring(0, 10) || `#${contest.display_number || '?'}`,
+          submissions: Array.isArray(contest.submission_count) ? contest.submission_count.length : contest.submission_count || 0,
+          contest
+        }))
+        setContestData(performanceData)
       }
     } catch (error) {
       console.error('Error fetching stats:', error)
@@ -125,360 +114,224 @@ export default function DashboardOverview({ contestId = null }: DashboardOvervie
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" color="text.secondary" sx={{ mt: 3 }}>
-          Loading dashboard...
-        </Typography>
-      </Box>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Spinner size="lg" />
+        <p className="mt-6 text-lg text-slate-400">Laster dashbordstatistikk...</p>
+      </div>
     )
   }
 
-  const approvalRate = stats.total > 0 ? ((stats.approved / stats.total) * 100).toFixed(1) : 0
+  const approvalRate = stats.total > 0 ? parseFloat(((stats.approved / stats.total) * 100).toFixed(1)) : 0
 
-  return (
-    <Box>
-      {/* Header Section */}
-      <Box sx={{ mb: 4 }}>
-        <Typography 
-          variant="h4" 
-          fontWeight={700} 
-          gutterBottom
-          sx={{
-            color: 'text.primary',
-          }}
-        >
-          Dashboard Overview
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Manage and monitor your submissions and users
-        </Typography>
-      </Box>
+  // Chart data
+  const submissionData = [
+    { name: 'Godkjent', value: stats.approved, color: '#22c55e' },
+    { name: 'Ventende', value: stats.unapproved, color: '#eab308' },
+    { name: 'Avslått', value: stats.denied, color: '#ef4444' },
+    { name: 'Vinnere', value: stats.winners, color: '#a855f7' },
+  ]
 
-      {/* Key Metrics Row */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3, mb: 4 }}>
-        <MetricCard
-          title="Total Submissions"
-          value={stats.total}
-          icon={<VideoLibraryIcon />}
-          color="#3b82f6"
-          href="/moderation/submissions"
-        />
-        <MetricCard
-          title="Pending Review"
-          value={stats.unapproved}
-          icon={<TimeIcon />}
-          color="#eab308"
-          href="/moderation/submissions?status=UNAPPROVED"
-          urgent={stats.unapproved > 0}
-        />
-        <MetricCard
-          title="Approval Rate"
-          value={`${approvalRate}%`}
-          icon={<TrendingUpIcon />}
-          color="#22c55e"
-          stat={`${stats.approved} of ${stats.total}`}
-        />
-      </Box>
 
-      {/* Detailed Stats */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 3, mb: 3 }}>
-        {/* Submissions Section */}
-        <Box>
-          <Card elevation={0} sx={{ bgcolor: 'rgba(26, 26, 46, 0.6)', border: '1px solid', borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.primary' }}>
-                  <VideoLibraryIcon sx={{ fontSize: 20 }} />
-                  Submissions
-                </Typography>
-                <Link href="/moderation/submissions" style={{ textDecoration: 'none' }}>
-                  <Chip 
-                    label="View All" 
-                    size="small"
-                    clickable
-                    icon={<ArrowForwardIcon />}
-                    sx={{ fontSize: '0.75rem' }}
-                  />
-                </Link>
-              </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2 }}>
-                <StatusBox
-                  status="UNAPPROVED"
-                  count={stats.unapproved}
-                  icon={<TimeIcon />}
-                  color="#eab308"
-                  href="/moderation/submissions?status=UNAPPROVED"
-                />
-                <StatusBox
-                  status="APPROVED"
-                  count={stats.approved}
-                  icon={<CheckIcon />}
-                  color="#22c55e"
-                  href="/moderation/submissions?status=APPROVED"
-                />
-                <StatusBox
-                  status="DENIED"
-                  count={stats.denied}
-                  icon={<CancelIcon />}
-                  color="#ef4444"
-                  href="/moderation/submissions?status=DENIED"
-                />
-                <StatusBox
-                  status="WINNERS"
-                  count={stats.winners}
-                  icon={<TrophyIcon />}
-                  color="#a855f7"
-                  href="/moderation/winners"
-                />
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
-
-        {/* Users Section */}
-        <Box>
-          <Card elevation={0} sx={{ bgcolor: 'rgba(26, 26, 46, 0.6)', border: '1px solid', borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="h6" fontWeight={700} gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.primary' }}>
-                <PeopleIcon sx={{ fontSize: 20 }} />
-                Users
-              </Typography>
-              <Box sx={{ mt: 2, space: 2 }}>
-                <UserMetric label="Total" value={userStats.total} icon={<PeopleIcon />} />
-                <UserMetric label="Moderators" value={userStats.moderators} icon={<ShieldIcon />} />
-                <UserMetric label="Streamers" value={userStats.streamers} icon={<StarIcon />} />
-                <UserMetric label="Admins" value={userStats.admins} icon={<AdminIcon />} />
-                <UserMetric label="Banned" value={userStats.banned} icon={<BlockIcon />} color="#ef4444" />
-              </Box>
-              <Link href="/moderation/users" style={{ textDecoration: 'none' }}>
-                <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', color: 'primary.main', cursor: 'pointer' }}>
-                  <Typography variant="caption" sx={{ mr: 1 }}>Manage Users</Typography>
-                  <ArrowForwardIcon sx={{ fontSize: 16 }} />
-                </Box>
-              </Link>
-            </CardContent>
-          </Card>
-        </Box>
-      </Box>
-
-      {/* Quick Actions */}
-      <Box sx={{ mt: 4 }}>
-        <Typography variant="h6" fontWeight={700} gutterBottom sx={{ mb: 3, color: 'text.primary' }}>Quick Actions</Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2 }}>
-          <ActionButton
-            title="Review Pending"
-            icon={<TimeIcon />}
-            color="#eab308"
-            href="/moderation/submissions?status=UNAPPROVED"
-          />
-          <ActionButton
-            title="View Winners"
-            icon={<TrophyIcon />}
-            color="#a855f7"
-            href="/moderation/winners"
-          />
-          <ActionButton
-            title="All Submissions"
-            icon={<VideoLibraryIcon />}
-            color="#3b82f6"
-            href="/moderation/submissions"
-          />
-          <ActionButton
-            title="User Management"
-            icon={<PeopleIcon />}
-            color="#6366f1"
-            href="/moderation/users"
-          />
-        </Box>
-      </Box>
-    </Box>
+  const StatCard = ({ title, value, icon: Icon, colorClass }: any) => (
+    <Card className="border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors">
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className={`p-2 rounded-lg ${colorClass}`}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <p className="text-sm font-medium text-slate-400">{title}</p>
+            </div>
+            <p className="text-3xl font-bold text-white">{value}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
-}
 
-// Metric Card Component
-interface MetricCardProps {
-  title: string
-  value: string | number
-  icon: ReactNode
-  color: string
-  href?: string
-  stat?: string
-  urgent?: boolean
-}
-
-function MetricCard({ title, value, icon, color, href, stat, urgent }: MetricCardProps) {
-  const CardWrapper = ({ children }: { children: ReactNode }) => {
-    if (href) {
-      return (
-        <Link href={href} style={{ textDecoration: 'none' }}>
-          {children}
-        </Link>
-      )
-    }
-    return <>{children}</>
-  }
+  const selectedContestInfo = allContests.find(c => c.id === selectedContest)
 
   return (
-    <CardWrapper>
-      <Card
-        elevation={0}
-        sx={{
-          height: '100%',
-          backgroundColor: 'rgba(26, 26, 46, 0.6)',
-          border: `1px solid ${alpha(color, 0.2)}`,
-          transition: 'all 0.2s ease',
-          cursor: href ? 'pointer' : 'default',
-          '&:hover': href ? {
-            transform: 'translateY(-2px)',
-            borderColor: color,
-            boxShadow: `0 4px 12px ${alpha(color, 0.2)}`,
-          } : {},
-        }}
-      >
-        <CardContent sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            <Box
-              sx={{
-                p: 1,
-                borderRadius: 1,
-                bgcolor: alpha(color, 0.1),
-                color: color,
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              {icon}
-            </Box>
-            {urgent && (
-              <Chip label="Urgent" size="small" sx={{ bgcolor: '#ef4444', color: 'white', height: 20 }} />
+    <div className="space-y-8">
+      {/* Key Metrics Header */}
+      <div className="pb-4 border-b border-slate-800">
+        <h3 className="text-xl font-semibold text-white mb-2 flex items-center gap-2">
+          <Video className="h-6 w-6 text-blue-500" />
+          Innsendingsstatistikk
+        </h3>
+        {selectedContestInfo && selectedContest !== 'all' && (
+          <p className="text-sm text-slate-400 flex items-center gap-2">
+            <Trophy className="h-3 w-3" />
+            Konkurranse: {selectedContestInfo.title}
+          </p>
+        )}
+        {(!selectedContest || selectedContest === 'all') && (
+          <p className="text-sm text-slate-400">Oversikt over alle konkurranser</p>
+        )}
+      </div>
+
+      {/* Key Metrics */}
+      <div>
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <StatCard 
+            title="Totalt" 
+          value={stats.total}
+            icon={Video}
+            colorClass="bg-blue-500/10 text-blue-500"
+        />
+          <StatCard 
+            title="Ventende" 
+          value={stats.unapproved}
+            icon={Clock}
+            colorClass="bg-yellow-500/10 text-yellow-500"
+          />
+          <StatCard 
+            title="Godkjent" 
+            value={stats.approved} 
+            icon={CheckCircle}
+            colorClass="bg-green-500/10 text-green-500"
+          />
+          <StatCard 
+            title="Avslått" 
+            value={stats.denied} 
+            icon={XCircle}
+            colorClass="bg-red-500/10 text-red-500"
+          />
+          <StatCard 
+            title="Vinnere" 
+            value={stats.winners} 
+            icon={Trophy}
+            colorClass="bg-purple-500/10 text-purple-500"
+          />
+        </div>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Submission Status Chart */}
+        <Card className="border-slate-800 bg-slate-900/50">
+          <CardHeader>
+            <CardTitle className="text-white">Status på innsendinger</CardTitle>
+            {selectedContest && selectedContest !== 'all' && (
+              <p className="text-xs text-slate-400 mt-1">Viser data kun for valgt konkurranse</p>
             )}
-          </Box>
-          <Typography variant="h3" fontWeight={700} sx={{ mb: 0.5 }}>
-            {value}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {title}
-          </Typography>
-          {stat && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              {stat}
-            </Typography>
+            {(!selectedContest || selectedContest === 'all') && (
+              <p className="text-xs text-slate-400 mt-1">Viser data for alle konkurranser</p>
+            )}
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={submissionData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="name" stroke="#94a3b8" />
+                <YAxis stroke="#94a3b8" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#1e293b', 
+                    border: '1px solid #334155',
+                    borderRadius: '8px',
+                    color: '#ffffff'
+                  }}
+                  itemStyle={{ color: '#ffffff' }}
+                  labelStyle={{ color: '#94a3b8' }}
+                />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                  {submissionData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+        {/* Contest Performance Chart */}
+        <Card className="border-slate-800 bg-slate-900/50">
+          <CardHeader>
+            <CardTitle className="text-white">Topp 5 konkurranser etter innsendinger</CardTitle>
+            <p className="text-xs text-slate-400 mt-1">Sammenligning av alle konkurranser</p>
+          </CardHeader>
+          <CardContent>
+            {contestData.length === 0 ? (
+              <div className="flex items-center justify-center h-[300px]">
+                <p className="text-slate-400">Ingen konkurransedata tilgjengelig</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={contestData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="name" stroke="#94a3b8" />
+                  <YAxis stroke="#94a3b8" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1e293b', 
+                      border: '1px solid #334155',
+                      borderRadius: '8px',
+                      color: '#ffffff'
+                    }}
+                    itemStyle={{ color: '#ffffff' }}
+                    labelStyle={{ color: '#94a3b8' }}
+                  />
+                  <Bar dataKey="submissions" radius={[8, 8, 0, 0]} fill="#3b82f6">
+                    {contestData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={['#3b82f6', '#a855f7', '#ec4899', '#eab308', '#22c55e'][index % 5]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
           )}
         </CardContent>
       </Card>
-    </CardWrapper>
+      </div>
+
+      {/* Quick User Stats */}
+      <Card className="border-slate-800 bg-slate-900/50">
+        <CardHeader>
+          <CardTitle className="text-white">Brukeroppsummering</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/50">
+              <Users className="h-4 w-4 text-cyan-500" />
+              <div>
+                <p className="text-xs text-slate-400">Antall brukere</p>
+                <p className="text-lg font-bold text-white">{userStats.total}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/50">
+              <Shield className="h-4 w-4 text-purple-500" />
+              <div>
+                <p className="text-xs text-slate-400">Administratorer</p>
+                <p className="text-lg font-bold text-white">{userStats.admins}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/50">
+              <Star className="h-4 w-4 text-yellow-500" />
+              <div>
+                <p className="text-xs text-slate-400">Streamere</p>
+                <p className="text-lg font-bold text-white">{userStats.streamers}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/50">
+              <Users className="h-4 w-4 text-blue-500" />
+              <div>
+                <p className="text-xs text-slate-400">Seere</p>
+                <p className="text-lg font-bold text-white">{userStats.viewers}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/50">
+              <Ban className="h-4 w-4 text-red-500" />
+              <div>
+                <p className="text-xs text-slate-400">Utestengt</p>
+                <p className="text-lg font-bold text-white">{userStats.banned}</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 
-// Status Box Component
-interface StatusBoxProps {
-  status: string
-  count: number
-  icon: ReactNode
-  color: string
-  href: string
-}
 
-function StatusBox({ status, count, icon, color, href }: StatusBoxProps) {
-  return (
-    <Link href={href} style={{ textDecoration: 'none' }}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          textAlign: 'center',
-          borderRadius: 2,
-          backgroundColor: 'rgba(26, 26, 46, 0.6)',
-          border: `1px solid ${alpha(color, 0.2)}`,
-          transition: 'all 0.2s ease',
-          cursor: 'pointer',
-          '&:hover': {
-            borderColor: color,
-            transform: 'translateY(-2px)',
-            boxShadow: `0 4px 12px ${alpha(color, 0.2)}`,
-          },
-        }}
-      >
-        <Box sx={{ color, mb: 1, display: 'flex', justifyContent: 'center' }}>
-          {icon}
-        </Box>
-        <Typography variant="h4" fontWeight={700}>
-          {count}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {status}
-        </Typography>
-      </Paper>
-    </Link>
-  )
-}
-
-// User Metric Component
-interface UserMetricProps {
-  label: string
-  value: number
-  icon: ReactNode
-  color?: string
-}
-
-function UserMetric({ label, value, icon, color = 'primary.main' }: UserMetricProps) {
-  const bgColor = color === 'primary.main' ? 'rgba(59, 130, 246, 0.1)' : alpha(color, 0.1)
-  
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Box sx={{ color, display: 'flex', alignItems: 'center' }}>
-          {icon}
-        </Box>
-        <Typography variant="body2" fontWeight={500}>
-          {label}
-        </Typography>
-      </Box>
-      <Chip label={value} size="small" sx={{ fontWeight: 700, bgcolor: bgColor }} />
-    </Box>
-  )
-}
-
-// Action Button Component
-interface ActionButtonProps {
-  title: string
-  icon: ReactNode
-  color: string
-  href: string
-}
-
-function ActionButton({ title, icon, color, href }: ActionButtonProps) {
-  return (
-    <Link href={href} style={{ textDecoration: 'none' }}>
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            backgroundColor: 'rgba(26, 26, 46, 0.6)',
-            border: `1px solid ${alpha(color, 0.2)}`,
-            borderRadius: 2,
-            transition: 'all 0.2s ease',
-            cursor: 'pointer',
-            '&:hover': {
-              borderColor: color,
-              transform: 'translateY(-2px)',
-              boxShadow: `0 4px 12px ${alpha(color, 0.2)}`,
-            },
-          }}
-        >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box sx={{ color, display: 'flex', alignItems: 'center' }}>
-              {icon}
-            </Box>
-            <Typography variant="body2" fontWeight={600}>
-              {title}
-            </Typography>
-          </Box>
-          <ArrowForwardIcon sx={{ color, fontSize: 20 }} />
-        </Box>
-      </Paper>
-    </Link>
-  )
-}

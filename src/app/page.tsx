@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Contest } from '@/types'
-import { Box, Card, CardContent, Typography, Button, CircularProgress, Chip, CardActions } from '@mui/material'
-import { Event } from '@mui/icons-material'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Spinner } from '@/components/ui/spinner'
+import { Badge } from '@/components/ui/badge'
+import { Calendar } from 'lucide-react'
 import SubmissionModal from '@/components/contests/SubmissionModal'
-import SeventvEmote from '@/components/emoji/SeventvEmote'
 
 const TwitchIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -85,231 +87,130 @@ export default function ContestsPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" color="text.secondary" sx={{ mt: 3 }}>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Spinner size="lg" />
+        <p className="mt-6 text-lg text-gray-400">
           Loading contests...
-        </Typography>
-      </Box>
+        </p>
+      </div>
     )
   }
 
   return (
-    <Box sx={{ maxWidth: '1100px', mx: 'auto', px: 10, py: 6 }}>
+    <div className="max-w-[1100px] mx-auto px-10 py-6">
       {/* Header Section */}
-      <Card sx={{ 
-        bgcolor: 'rgba(26, 26, 46, 0.6)', 
-        border: '1px solid rgba(59, 130, 246, 0.2)',
-        textAlign: 'center',
-        mb: 6,
-        borderRadius: 2,
-      }}>
-        <CardContent sx={{ px: 4 }}>
+      <Card className="bg-slate-800/50 border border-blue-500/20 text-center mb-6 rounded-lg">
+        <CardContent className="px-4">
           {/* Avatar */}
-          <Box sx={{ display: 'inline-block', mb: 0 }}>
+          <div className="inline-block mb-0 mt-5">
             <img 
               src="https://cdn.7tv.app/emote/01K2FVET0YSST6DY9519CP8YX6/4x.avif"
               alt="Skiben logo"
-              style={{ 
-                width: '150px',
-                height: '150px',
-                objectFit: 'contain',
-                imageRendering: 'crisp-edges'
-              }}
+              className="w-[150px] h-[150px] object-contain"
+              style={{ imageRendering: 'crisp-edges' }}
             />
-          </Box>
+          </div>
 
           {/* Title */}
-          <Typography 
-            variant="h3" 
-            sx={{ 
-              fontWeight: 700,
-              background: 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              mb: 2,
-              fontSize: { xs: '1.5rem', md: '2rem' }
-            }}
-          >
-            SKIBEN Contests
-          </Typography>
+          <h2 className="font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent mb-2 text-2xl md:text-3xl">
+            SKIBEN Konkurranser
+          </h2>
 
           {/* Connect Button */}
           {!user ? (
             <Button
-              variant="contained"
-              size="small"
-              startIcon={<TwitchIcon />}
+              size="sm"
               onClick={handleConnect}
-              sx={{
-                background: 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)',
-                color: 'white',
-                px: 2.5,
-                py: 1,
-                fontSize: '0.875rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                borderRadius: 2,
-                boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.3)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #1d4ed8 0%, #0891b2 100%)',
-                  boxShadow: '0 20px 25px -5px rgba(37, 99, 235, 0.4)',
-                },
-              }}
+              className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-2 text-sm font-bold uppercase tracking-wider rounded-lg shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
             >
-              Connect
+              <TwitchIcon />
+              Koble til
             </Button>
           ) : null}
         </CardContent>
       </Card>
 
       {/* Contests List */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div className="flex flex-col gap-4">
         {contests.length === 0 ? (
-          <Card sx={{ 
-            bgcolor: 'rgba(26, 26, 46, 0.6)', 
-            border: '1px solid rgba(59, 130, 246, 0.2)',
-            textAlign: 'center', 
-            py: 8,
-            color: 'white',
-            borderRadius: 2,
-          }}>
+          <Card className="bg-slate-800/50 border border-blue-500/20 text-center py-8 text-white rounded-lg">
             <CardContent>
-              <Typography variant="h1" sx={{ mb: 2, opacity: 0.5, fontSize: '4rem' }}>🎯</Typography>
-              <Typography variant="h5" fontWeight={600} gutterBottom color="white">
-                No contests found
-              </Typography>
-              <Typography variant="body1" sx={{ color: '#cccccc' }}>
-                Check back soon for new contest opportunities!
-              </Typography>
+              <div className="text-7xl mb-2 opacity-50">🎯</div>
+              <h3 className="font-semibold text-xl mb-2 text-white">
+                Ingen konkurranser funnet
+              </h3>
+              <p className="text-gray-300">
+                Sjekk innom snart for nye konkurranser!
+              </p>
             </CardContent>
           </Card>
         ) : (
           contests.map((contest) => (
             <Card 
               key={contest.id} 
-              sx={{ 
-                bgcolor: contest.status === 'ACTIVE' ? 'rgba(26, 26, 46, 0.6)' : 'rgba(26, 26, 46, 0.3)',
-                border: '1px solid rgba(59, 130, 246, 0.2)',
-                color: 'white',
-                borderRadius: 2,
-                overflow: 'hidden',
-                opacity: contest.status === 'ACTIVE' ? 1 : 0.6,
-                '&:hover': {
-                  bgcolor: contest.status === 'ACTIVE' ? 'rgba(26, 26, 46, 0.8)' : 'rgba(26, 26, 46, 0.4)',
-                  borderColor: 'rgba(59, 130, 246, 0.4)',
-                  transform: contest.status === 'ACTIVE' ? 'translateY(-2px)' : 'none',
-                  boxShadow: contest.status === 'ACTIVE' ? '0 8px 16px rgba(0, 0, 0, 0.3)' : 'none',
-                },
-                transition: 'all 0.2s',
-              }}
+              className={`bg-[rgba(26,26,46,${contest.status === 'ACTIVE' ? '0.4' : '0.2'})] border border-blue-500/20 text-white rounded-lg overflow-hidden transition-all duration-200 ${
+                contest.status === 'ACTIVE' 
+                  ? 'opacity-100 hover:bg-[rgba(26,26,46,0.6)] hover:border-blue-500/40 hover:-translate-y-0.5 hover:shadow-lg' 
+                  : 'opacity-60 hover:bg-[rgba(26,26,46,0.35)]'
+              }`}
             >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 3, alignItems: 'center', gap: 3 }}>
+              <div className="flex justify-between p-3 items-center gap-3">
                 {/* Left side - Text content */}
-                <Box sx={{ flex: 1 }}>
+                <div className="flex-1">
                   {/* Status and Date */}
-                  <Box sx={{ mb: 1.5 }}>
-                    <Typography variant="body2" sx={{ color: '#b4b4b4', fontSize: '0.75rem' }}>
-                      Status: <Typography component="span" sx={{ 
-                        color: contest.status === 'ACTIVE' ? '#ef4444' : '#64748b', 
-                        fontWeight: 700, 
-                        fontSize: '0.75rem' 
-                      }}>
-                        {contest.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                      </Typography>
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: '#b4b4b4', fontSize: '0.75rem', mt: 0.5 }}>
+                  <div className="mb-2">
+                    <p className="text-gray-400 text-xs">
+                      Status: <span className={`font-bold text-xs ${
+                        contest.status === 'ACTIVE' ? 'text-red-500' : 'text-slate-500'
+                      }`}>
+                        {contest.status === 'ACTIVE' ? 'Aktiv' : 'Inaktiv'}
+                      </span>
+                    </p>
+                    <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
                       {new Date(contest.created_at).toLocaleDateString('en-US', { 
                         month: 'long', 
                         day: 'numeric',
                         year: 'numeric'
                       })}
-                    </Typography>
-                  </Box>
+                    </p>
+                  </div>
 
                   {/* Alert Contest badge */}
-                  <Box sx={{ mb: 1 }}>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        color: 'primary.main',
-                        fontWeight: 700,
-                        fontSize: '1rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px'
-                      }}
-                    >
-                      ALERT CONTEST
-                    </Typography>
-                  </Box>
+                  <div className="mb-2">
+                    <p className="text-blue-600 font-bold text-base uppercase tracking-wider">
+                      VARSLINGSKONKURRANSE
+                    </p>
+                  </div>
 
                   {/* Main title */}
-                  <Typography 
-                    variant="h6"
-                    sx={{
-                      color: 'white',
-                      fontWeight: 700,
-                      mb: 1.5,
-                      fontSize: '1.5rem',
-                      lineHeight: 1.2,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    }}
-                  >
+                  <h3 className="text-white font-bold mb-2 text-2xl leading-tight uppercase tracking-wide">
                     {contest.title}
-                  </Typography>
+                  </h3>
 
                   {/* Submissions count */}
-                  <Typography 
-                    variant="body2"
-                    sx={{
-                      color: 'primary.main',
-                      fontWeight: 700,
-                      fontSize: '1rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '1px'
-                    }}
-                  >
-                    {contest.submission_count} SUBMISSIONS
-                  </Typography>
-                </Box>
+                  <p className="text-blue-600 font-bold text-base uppercase tracking-wider">
+                    {contest.submission_count} INNSENDINGER
+                  </p>
+                </div>
 
                 {/* Right side - Submit button */}
                 {contest.status === 'ACTIVE' && (
-                  <Box sx={{ alignSelf: 'center' }}>
+                  <div>
                     <Button
-                      variant="contained"
-                      size="small"
+                      size="sm"
                       onClick={() => setSelectedContest(contest)}
-                      sx={{
-                        bgcolor: 'primary.main',
-                        color: 'white',
-                        px: 2,
-                        py: 1,
-                        minWidth: 80,
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        fontSize: '0.75rem',
-                        borderRadius: 2,
-                        boxShadow: 'none',
-                        '&:hover': {
-                          bgcolor: 'primary.dark',
-                          boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-                        },
-                      }}
+                      className="bg-blue-600 text-white px-4 py-2 min-w-[80px] font-bold uppercase tracking-wider text-xs rounded-lg hover:bg-blue-700 hover:shadow-md"
                     >
-                      SUBMIT
+                      SEND INN
                     </Button>
-                  </Box>
+                  </div>
                 )}
-              </Box>
+              </div>
             </Card>
           ))
         )}
-      </Box>
+      </div>
 
       {/* Submission Modal */}
       {selectedContest && (
@@ -319,6 +220,6 @@ export default function ContestsPage() {
           onSubmitSuccess={handleSubmitSuccess}
         />
       )}
-    </Box>
+    </div>
   )
 }
