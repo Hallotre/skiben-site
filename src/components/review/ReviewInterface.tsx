@@ -5,35 +5,89 @@ import { createClient } from '@/utils/supabase/client'
 import { Submission, SubmissionStatus } from '@/types'
 import VideoPlayer from '@/components/video/VideoPlayer'
 import ModerationActions from '@/components/moderation/ModerationActions'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { ChevronLeft, ChevronRight, Eye, Calendar, User, ExternalLink, MessageSquare, Trophy, Trash2, MinusCircle } from 'lucide-react'
 
-export default function ReviewInterface() {
+interface ReviewInterfaceProps {
+  contestId?: string
+}
+
+export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
   const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]) // Store all submissions for filter checking
   const [currentIndex, setCurrentIndex] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [contest, setContest] = useState<any>(null)
+  const [currentStatus, setCurrentStatus] = useState<'ALL' | 'DENIED' | 'UNAPPROVED' | 'APPROVED' | 'WINNER'>('APPROVED')
   const supabase = createClient()
 
   useEffect(() => {
-    fetchApprovedSubmissions()
-  }, [])
+    fetchSubmissions()
+    if (contestId) {
+      fetchContest()
+    }
+  }, [contestId, currentStatus])
 
-  const fetchApprovedSubmissions = async () => {
-    setLoading(true)
+  const fetchContest = async () => {
+    if (!contestId) return
+    
     try {
       const { data, error } = await supabase
+        .from('contests')
+        .select('*')
+        .eq('id', contestId)
+        .single()
+
+      if (error) {
+        console.error('Error fetching contest:', error)
+      } else {
+        setContest(data)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+    }
+  }
+
+  const fetchSubmissions = async () => {
+    setLoading(true)
+    try {
+      // First fetch all submissions for filter checking
+      let allQuery = supabase
         .from('submissions')
         .select(`
           *,
           submitter:profiles(*)
         `)
-        .eq('status', 'APPROVED')
         .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('Error fetching approved submissions:', error)
+      // Filter by contest if contestId is provided
+      if (contestId) {
+        allQuery = allQuery.eq('contest_id', contestId)
+      }
+
+      const { data: allData, error: allError } = await allQuery
+
+      if (allError) {
+        console.error('Error fetching all submissions:', allError)
         return
       }
 
-      setSubmissions(data || [])
+      setAllSubmissions(allData || [])
+
+      // Then filter by status for display
+      let filteredData = allData || []
+      if (currentStatus !== 'ALL') {
+        filteredData = filteredData.filter(sub => sub.status === currentStatus)
+      }
+
+      setSubmissions(filteredData)
+      setCurrentIndex(0) // Reset to first submission when changing filters
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -56,34 +110,98 @@ export default function ReviewInterface() {
   }
 
   const handleStatusChange = (submissionId: string, newStatus: SubmissionStatus) => {
-    // Remove the submission from the list if it's no longer approved
-    if (newStatus !== 'APPROVED') {
-      setSubmissions(prev => prev.filter(sub => sub.id !== submissionId))
-      
-      // Adjust current index if needed
-      if (currentIndex >= submissions.length - 1) {
-        setCurrentIndex(Math.max(0, submissions.length - 2))
+    // Update the submission status in the database
+    const updateSubmission = async () => {
+      try {
+        const { error } = await supabase
+          .from('submissions')
+          .update({ status: newStatus })
+          .eq('id', submissionId)
+
+        if (error) throw error
+
+        // Update local state instead of refreshing entire list
+        setSubmissions(prev => prev.map(sub => 
+          sub.id === submissionId ? { ...sub, status: newStatus } : sub
+        ))
+        setAllSubmissions(prev => prev.map(sub => 
+          sub.id === submissionId ? { ...sub, status: newStatus } : sub
+        ))
+      } catch (error) {
+        console.error('Error updating submission:', error)
       }
     }
+
+    updateSubmission()
+  }
+
+  const handleWinnerToggle = (submissionId: string) => {
+    const currentSub = submissions.find(sub => sub.id === submissionId)
+    if (!currentSub) return
+
+    const newStatus = currentSub.status === 'WINNER' ? 'APPROVED' : 'WINNER'
+    handleStatusChange(submissionId, newStatus)
   }
 
   const handleBanUser = (userId: string) => {
-    // Remove all submissions from banned user
-    setSubmissions(prev => prev.filter(sub => sub.submitter_id !== userId))
-    
-    // Adjust current index if needed
-    if (currentIndex >= submissions.length - 1) {
-      setCurrentIndex(Math.max(0, submissions.length - 2))
+    const banUser = async () => {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ is_banned: true })
+          .eq('id', userId)
+
+        if (error) throw error
+
+        // Remove submissions from banned user locally
+        setSubmissions(prev => prev.filter(sub => sub.submitter_id !== userId))
+        setAllSubmissions(prev => prev.filter(sub => sub.submitter_id !== userId))
+        
+        // Adjust current index if needed
+        if (currentIndex >= submissions.length - 1) {
+          setCurrentIndex(Math.max(0, submissions.length - 2))
+        }
+      } catch (error) {
+        console.error('Error banning user:', error)
+      }
     }
+
+    banUser()
+  }
+
+  const handleDeleteSubmission = (submissionId: string) => {
+    const deleteSubmission = async () => {
+      try {
+        const { error } = await supabase
+          .from('submissions')
+          .delete()
+          .eq('id', submissionId)
+
+        if (error) throw error
+
+        // Remove deleted submission locally
+        setSubmissions(prev => prev.filter(sub => sub.id !== submissionId))
+        setAllSubmissions(prev => prev.filter(sub => sub.id !== submissionId))
+        
+        // Adjust current index if needed
+        if (currentIndex >= submissions.length - 1) {
+          setCurrentIndex(Math.max(0, submissions.length - 2))
+        }
+      } catch (error) {
+        console.error('Error deleting submission:', error)
+      }
+    }
+
+    deleteSubmission()
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading approved videos...</p>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Spinner size="lg" />
+        <p className="mt-6 text-lg text-slate-400">
+          Laster inn godkjente videoer...
+        </p>
       </div>
     )
   }
@@ -91,124 +209,192 @@ export default function ReviewInterface() {
   if (submissions.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-white mb-4">No Approved Videos</h1>
-          <p className="text-gray-300">
-            There are no approved videos to review at the moment.
-          </p>
-        </div>
+        <Card className="border-slate-800 bg-slate-900/50 text-center py-16">
+          <CardContent>
+            <div className="flex flex-col items-center gap-4">
+              <div className="p-4 bg-slate-800 rounded-full">
+                <Eye className="h-16 w-16 text-slate-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-white mb-4">Ingen godkjente videoer</h1>
+                <p className="text-slate-400">
+                  Det er ingen godkjente videoer å vurdere for øyeblikket.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header with counter and navigation */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Review Interface</h1>
-          <p className="text-gray-300">
-            Browse approved submissions for your stream
-          </p>
-        </div>
-        
-        <div className="text-center">
-          <div className="text-2xl font-bold text-primary-500">
-            {currentIndex + 1} / {submissions.length}
-          </div>
-          <p className="text-sm text-gray-400">Approved Videos</p>
-        </div>
-      </div>
-
-      {/* Navigation Controls */}
-      <div className="flex justify-center mb-8">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={goToPrevious}
-            disabled={currentIndex === 0}
-            className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            ← Previous
-          </button>
-          
-          <span className="text-gray-300 px-4">
-            {currentIndex + 1} of {submissions.length}
-          </span>
-          
-          <button
-            onClick={goToNext}
-            disabled={currentIndex === submissions.length - 1}
-            className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next →
-          </button>
-        </div>
-      </div>
-
-      {/* Video Player and Details */}
-      {currentSubmission && (
-        <div className="card">
-          <div className="mb-6">
-            <VideoPlayer
-              videoId={currentSubmission.video_id}
-              platform={currentSubmission.platform}
-              title={currentSubmission.title}
-              className="mb-6"
-            />
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Status Filter Buttons */}
+        <div className="flex gap-2 mb-6">
+          {(['ALL', 'DENIED', 'UNAPPROVED', 'APPROVED', 'WINNER'] as const).map(status => {
+            // Check if there are submissions for this status
+            const hasContent = status === 'ALL' ? allSubmissions.length > 0 : allSubmissions.some(sub => sub.status === status)
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            return (
+              <Button
+                key={status}
+                variant={status === currentStatus ? 'default' : 'outline'}
+                onClick={() => hasContent && setCurrentStatus(status)}
+                disabled={!hasContent}
+                className={status === currentStatus 
+                  ? 'bg-green-600 hover:bg-green-700 text-white font-semibold' 
+                  : hasContent 
+                    ? 'border-green-600/30 bg-green-600/10 text-green-400 hover:bg-green-600/20 hover:text-green-300'
+                    : 'border-green-600/20 bg-green-600/5 text-green-500/50 cursor-not-allowed'
+                }
+              >
+                {status === 'ALL' && 'ALLE'}
+                {status === 'DENIED' && 'AVSLÅTT'}
+                {status === 'UNAPPROVED' && 'VENTENDE'}
+                {status === 'APPROVED' && 'GODKJENT'}
+                {status === 'WINNER' && 'VINNER'}
+              </Button>
+            )
+          })}
+        </div>
+
+        {/* Submission Info */}
+        {currentSubmission && (
+          <div className="mb-6 text-sm text-slate-300">
+            <div className="flex items-center gap-4">
+              <span>Innsending ID: {currentSubmission.id.substring(0, 8)}</span>
+              <span className="text-green-400">Status: {currentSubmission.status}</span>
+              <span>{currentIndex + 1} / {submissions.length}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Main Video Player Area */}
+        {currentSubmission && (
+          <div className="space-y-4">
+            {/* Video Player with External Navigation */}
+            <div className="flex items-center gap-4">
+              {/* Left Navigation Arrow */}
+              <Button
+                onClick={goToPrevious}
+                disabled={currentIndex === 0}
+                size="sm"
+                className="h-12 w-12 p-0 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </Button>
+
+              {/* Video Player */}
+              <div className="flex-1 bg-black rounded-lg overflow-hidden">
+                <VideoPlayer
+                  videoId={currentSubmission.video_id}
+                  platform={currentSubmission.platform}
+                  title={currentSubmission.title}
+                />
+              </div>
+
+              {/* Right Navigation Arrow */}
+              <Button
+                onClick={goToNext}
+                disabled={currentIndex === submissions.length - 1}
+                size="sm"
+                className="h-12 w-12 p-0 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </Button>
+            </div>
+
+            {/* Submission Details - Centered */}
+            <div className="text-center space-y-2">
+              {/* Title and Submitter */}
               <div>
-                <h2 className="text-xl font-bold text-white mb-4">
+                <h2 className="text-xl font-bold text-white mb-1">
                   {currentSubmission.title}
                 </h2>
-                
-                <div className="space-y-2 text-sm text-gray-300">
-                  <p><strong>Platform:</strong> {currentSubmission.platform}</p>
-                  <p><strong>Submitted by:</strong> {currentSubmission.submitter?.username}</p>
-                  <p><strong>Submitted:</strong> {new Date(currentSubmission.created_at).toLocaleDateString()}</p>
-                  <p><strong>Status:</strong> 
-                    <span className="ml-2 bg-green-900/20 text-green-400 px-2 py-1 rounded text-xs">
-                      {currentSubmission.status}
-                    </span>
-                  </p>
-                </div>
+                <p className="text-slate-400 text-sm">
+                  {currentSubmission.submitter?.username}
+                </p>
               </div>
-              
+
+              {/* Video Link */}
               <div>
-                <h3 className="text-lg font-semibold text-white mb-3">Video Link</h3>
                 <a 
                   href={currentSubmission.video_url} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-primary-500 hover:text-primary-400 break-all"
+                  className="text-blue-400 hover:text-blue-300 break-all text-sm"
                 >
                   {currentSubmission.video_url}
                 </a>
+              </div>
+
+              {/* Timestamps */}
+              {(currentSubmission.start_timestamp || currentSubmission.end_timestamp) && (
+                <div className="text-slate-300 text-sm">
+                  {currentSubmission.start_timestamp && currentSubmission.end_timestamp ? (
+                    <span>{currentSubmission.start_timestamp} - {currentSubmission.end_timestamp}</span>
+                  ) : currentSubmission.start_timestamp ? (
+                    <span>Fra: {currentSubmission.start_timestamp}</span>
+                  ) : (
+                    <span>Til: {currentSubmission.end_timestamp}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Comment if exists */}
+              {currentSubmission.metadata?.comment && (
+                <div>
+                  <p className="text-slate-300 text-sm">
+                    {currentSubmission.metadata.comment}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3 max-w-md mx-auto">
+              {/* Winner Toggle Switch - Full Width */}
+              <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-800">
+                <div className="flex items-center gap-3">
+                  <Trophy className={`h-5 w-5 ${currentSubmission.status === 'WINNER' ? 'text-yellow-500' : 'text-yellow-400/50'}`} />
+                  <span className="text-white font-medium">
+                    {currentSubmission.status === 'WINNER' ? 'VINNER' : 'MARKER SOM VINNER'}
+                  </span>
+                </div>
+                <Switch
+                  checked={currentSubmission.status === 'WINNER'}
+                  onCheckedChange={() => handleWinnerToggle(currentSubmission.id)}
+                />
+              </div>
+              
+              {/* Action Buttons Row */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={() => handleDeleteSubmission(currentSubmission.id)}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  FJERN
+                </Button>
                 
-                {currentSubmission.metadata?.comment && (
-                  <div className="mt-4">
-                    <h3 className="text-lg font-semibold text-white mb-2">Comment</h3>
-                    <p className="text-gray-300 text-sm bg-dark-700 p-3 rounded">
-                      {currentSubmission.metadata.comment}
-                    </p>
-                  </div>
-                )}
+                <Button
+                  onClick={() => handleBanUser(currentSubmission.submitter_id)}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <MinusCircle className="h-4 w-4 mr-2" />
+                  UTESTENG BRUKER
+                </Button>
               </div>
             </div>
           </div>
-
-          {/* Moderation Actions */}
-          <div className="border-t border-dark-700 pt-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Moderation Actions</h3>
-            <ModerationActions
-              submission={currentSubmission}
-              onStatusChange={handleStatusChange}
-              onBanUser={handleBanUser}
-            />
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
+
+
+
 

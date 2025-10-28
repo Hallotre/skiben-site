@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import VideoPlayer from '@/components/video/VideoPlayer'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Trophy } from 'lucide-react'
+import { Trophy, CheckCircle, X, RotateCcw, Eye } from 'lucide-react'
+import ModerationActions from '@/components/moderation/ModerationActions'
+import Link from 'next/link'
 
 interface ModerationDashboardProps {
   selectedContest: string | null
@@ -51,6 +53,24 @@ export default function ModerationDashboard({ selectedContest, allContests }: Mo
     }
   }
 
+  const handleStatusChange = (submissionId: string, newStatus: any) => {
+    // Update local state
+    setSubmissions(prev => prev.filter(sub => sub.id !== submissionId))
+    
+    // Refetch to get updated list
+    fetchSubmissions()
+  }
+
+  const handleBanUser = () => {
+    // Refetch to remove banned user's submissions
+    fetchSubmissions()
+  }
+
+  const handleDeleteSubmission = (submissionId: string) => {
+    // Update local state to remove deleted submission
+    setSubmissions(prev => prev.filter(sub => sub.id !== submissionId))
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'APPROVED': return 'bg-green-600'
@@ -71,6 +91,32 @@ export default function ModerationDashboard({ selectedContest, allContests }: Mo
   }
 
   const selectedContestInfo = allContests.find(c => c.id === selectedContest)
+
+  // Show contest selection UI if no contest is selected
+  if (!selectedContest || selectedContest === 'all') {
+    return (
+      <div className="space-y-6">
+        <div className="pb-4 border-b border-slate-800">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-xl font-semibold text-white">Vurder innsendinger</h3>
+              <p className="text-sm text-slate-400 mt-1">Velg en konkurranse for å fortsette</p>
+            </div>
+          </div>
+        </div>
+
+        <Card className="border-slate-800 bg-slate-900/50 text-center py-12">
+          <CardContent>
+            <div className="flex flex-col items-center gap-4">
+              <Trophy className="h-16 w-16 text-slate-400" />
+              <h3 className="text-xl font-bold text-white">Velg en konkurranse</h3>
+              <p className="text-slate-400">Du må velge en spesifikk konkurranse for å kunne vurdere innsendinger</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -166,8 +212,33 @@ export default function ModerationDashboard({ selectedContest, allContests }: Mo
                       <p className="text-slate-400 mb-4">{submission.submission_comment}</p>
                     )}
 
-                    <div className="mt-4 text-sm text-slate-500">
+                    <div className="mt-4 text-sm text-slate-500 mb-4">
                       Sendt inn: {new Date(submission.created_at).toLocaleDateString()}
+                    </div>
+
+                    {/* Moderation Actions */}
+                    <div className="mt-6 pt-4 border-t border-slate-700">
+                      <div className="flex flex-wrap gap-3 mb-4">
+                        {submission.status === 'APPROVED' && selectedContest && selectedContest !== 'all' && (
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-600 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
+                          >
+                            <Link href={`/review/${selectedContest}`} className="flex items-center gap-2">
+                              <Eye className="h-4 w-4" />
+                              Gå til vurdering
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
+                      <ModerationActions
+                        submission={submission}
+                        onStatusChange={handleStatusChange}
+                        onBanUser={handleBanUser}
+                        onDeleteSubmission={handleDeleteSubmission}
+                      />
                     </div>
                   </div>
                 </div>

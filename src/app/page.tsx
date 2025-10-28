@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Contest } from '@/types'
+import { Contest, Profile } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { Badge } from '@/components/ui/badge'
-import { Calendar } from 'lucide-react'
+import { Calendar, Eye } from 'lucide-react'
 import SubmissionModal from '@/components/contests/SubmissionModal'
+import Link from 'next/link'
 
 const TwitchIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -28,6 +29,7 @@ export default function ContestsPage() {
   const [loading, setLoading] = useState(true)
   const [selectedContest, setSelectedContest] = useState<Contest | null>(null)
   const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
     fetchContests()
@@ -38,8 +40,30 @@ export default function ContestsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    // Fetch user profile if user exists
+    if (user) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      setProfile(profileData)
+    }
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
+      
+      // Fetch profile when auth state changes
+      if (session?.user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+        setProfile(profileData)
+      } else {
+        setProfile(null)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -116,17 +140,34 @@ export default function ContestsPage() {
             SKIBEN Konkurranser
           </h2>
 
-          {/* Connect Button */}
-          {!user ? (
-            <Button
-              size="sm"
-              onClick={handleConnect}
-              className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-2 text-sm font-bold uppercase tracking-wider rounded-lg shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
-            >
-              <TwitchIcon />
-              Koble til
-            </Button>
-          ) : null}
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+            {/* Connect Button */}
+            {!user ? (
+              <Button
+                size="sm"
+                onClick={handleConnect}
+                className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-2 text-sm font-bold uppercase tracking-wider rounded-lg shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
+              >
+                <TwitchIcon />
+                Koble til
+              </Button>
+            ) : null}
+
+            {/* Review Button for Streamers */}
+            {user && profile?.role === 'STREAMER' && (
+              <Button
+                asChild
+                size="sm"
+                className="bg-gradient-to-r from-purple-600 to-pink-500 text-white px-6 py-2 text-sm font-bold uppercase tracking-wider rounded-lg shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40"
+              >
+                <Link href="/review">
+                  <Eye className="h-4 w-4 mr-2" />
+                  Vurder innsendinger
+                </Link>
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 

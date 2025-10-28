@@ -53,7 +53,7 @@ export default function AppBar({ hideOnModeration = false }: AppBarProps) {
     return null
   }
 
-  const isModerator = profile?.role === 'MODERATOR' || profile?.role === 'STREAMER' || profile?.role === 'ADMIN'
+  const isModerator = profile?.role === 'MODERATOR' || profile?.role === 'ADMIN'
 
   // Always render the same structure, just conditionally show user content
   return (
