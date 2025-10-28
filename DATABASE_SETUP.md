@@ -104,6 +104,15 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR 
 CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
+-- Admin profile management (role changes, bans, deletes)
+DROP POLICY IF EXISTS "Admins can update profiles" ON public.profiles;
+CREATE POLICY "Admins can update profiles" ON public.profiles
+  FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
+
+DROP POLICY IF EXISTS "Admins can delete profiles" ON public.profiles;
+CREATE POLICY "Admins can delete profiles" ON public.profiles
+  FOR DELETE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
+
 -- Submissions: Everyone can read, authenticated users can create
 CREATE POLICY "Submissions are viewable by everyone" ON public.submissions FOR SELECT USING (true);
 CREATE POLICY "Authenticated users can create submissions" ON public.submissions FOR INSERT WITH CHECK (auth.uid() = submitter_id AND NOT (SELECT is_banned FROM public.profiles WHERE id = auth.uid()));

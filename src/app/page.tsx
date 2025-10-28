@@ -176,12 +176,16 @@ export default function ContestsPage() {
                     </p>
                   </div>
 
-                  {/* Alert Contest badge */}
-                  <div className="mb-2">
-                    <p className="text-blue-600 font-bold text-base uppercase tracking-wider">
-                      VARSLINGSKONKURRANSE
-                    </p>
-                  </div>
+                  {/* Tags */}
+                  {Array.isArray(contest.tags) && contest.tags.length > 0 && (
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      {contest.tags.map((tag, idx) => (
+                        <Badge key={idx} variant="secondary" className="bg-blue-600/10 text-blue-400 border-blue-600/30 font-semibold">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Main title */}
                   <h3 className="text-white font-bold mb-2 text-2xl leading-tight uppercase tracking-wide">
