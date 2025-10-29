@@ -26,7 +26,7 @@ export default function ContestsPage() {
     try {
       const { data, error } = await supabase
         .from('contests')
-        .select('*')
+        .select('id, title, description, status, display_number, tags, created_at, updated_at, submission_count:submissions(count)')
         .eq('status', 'ACTIVE')
         .order('created_at', { ascending: false })
 
@@ -34,7 +34,13 @@ export default function ContestsPage() {
         console.error('Error fetching contests:', error)
         setContests([])
       } else {
-        setContests(data || [])
+        const normalized = (data || []).map((contest: any) => ({
+          ...contest,
+          submission_count: Array.isArray(contest.submission_count)
+            ? (contest.submission_count[0]?.count ?? 0)
+            : (contest.submission_count ?? 0)
+        }))
+        setContests(normalized)
       }
     } catch (error) {
       console.error('Error:', error)

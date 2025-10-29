@@ -16,7 +16,7 @@ export default function TikTokEmbed({
 
   return (
     <div className={`relative w-full ${className}`}>
-      <div className="relative w-full h-0 pb-[125%]"> {/* TikTok aspect ratio */}
+      <div className="relative w-full h-0 pb-[177.78%]"> {/* 9:16 portrait aspect ratio */}
         <iframe
           src={embedUrl}
           title={title}

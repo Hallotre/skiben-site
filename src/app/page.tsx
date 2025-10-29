@@ -83,15 +83,23 @@ export default function ContestsPage() {
     try {
       const { data, error } = await supabase
         .from('contests')
-        .select('*')
+        .select('id, title, description, status, display_number, tags, created_at, updated_at, submission_count:submissions(count)')
         .order('created_at', { ascending: false })
 
       if (error) {
         console.error('Error fetching contests:', error)
         setContests([])
       } else {
+        // Normalize submission_count to a number
+        const normalized = (data || []).map((contest: any) => ({
+          ...contest,
+          submission_count: Array.isArray(contest.submission_count)
+            ? (contest.submission_count[0]?.count ?? 0)
+            : (contest.submission_count ?? 0)
+        }))
+
         // Sort: active contests first, then by most recent
-        const sortedData = (data || []).sort((a, b) => {
+        const sortedData = normalized.sort((a, b) => {
           if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
           if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()

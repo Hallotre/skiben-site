@@ -287,12 +287,14 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
               </Button>
 
               {/* Video Player */}
-              <div className="flex-1 bg-black rounded-lg overflow-hidden">
-                <VideoPlayer
-                  videoId={currentSubmission.video_id}
-                  platform={currentSubmission.platform}
-                  title={currentSubmission.title}
-                />
+              <div className={`flex-1 bg-black rounded-lg overflow-hidden ${currentSubmission.platform === 'TIKTOK' ? 'flex justify-center items-center' : ''}`}>
+                <div className={currentSubmission.platform === 'TIKTOK' ? 'w-full max-w-[420px]' : ''}>
+                  <VideoPlayer
+                    videoId={currentSubmission.video_id}
+                    platform={currentSubmission.platform}
+                    title={currentSubmission.title}
+                  />
+                </div>
               </div>
 
               {/* Right Navigation Arrow */}
