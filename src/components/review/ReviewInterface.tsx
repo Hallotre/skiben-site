@@ -332,18 +332,7 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
                 </a>
               </div>
 
-              {/* Timestamps */}
-              {(currentSubmission.start_timestamp || currentSubmission.end_timestamp) && (
-                <div className="text-slate-300 text-sm">
-                  {currentSubmission.start_timestamp && currentSubmission.end_timestamp ? (
-                    <span>{currentSubmission.start_timestamp} - {currentSubmission.end_timestamp}</span>
-                  ) : currentSubmission.start_timestamp ? (
-                    <span>Fra: {currentSubmission.start_timestamp}</span>
-                  ) : (
-                    <span>Til: {currentSubmission.end_timestamp}</span>
-                  )}
-                </div>
-              )}
+              {/* Removed timestamps display */}
 
               {/* Comment if exists */}
               {currentSubmission.metadata?.comment && (

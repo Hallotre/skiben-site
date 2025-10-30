@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+// removed select for source; auto-detect from URL
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { X } from 'lucide-react'
@@ -21,10 +21,7 @@ interface SubmissionModalProps {
 export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: SubmissionModalProps) {
   const [formData, setFormData] = useState({
     title: '',
-    source: 'YOUTUBE',
     link: '',
-    startTimestamp: '',
-    endTimestamp: '',
     comment: ''
   })
   const [loading, setLoading] = useState(false)
@@ -43,8 +40,8 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
         return
       }
 
-      // SECURITY: Use validated video extraction
-      const { extractVideoId, validateVideoUrl } = await import('@/lib/video-utils')
+      // SECURITY: Use validated video extraction and metadata
+      const { extractVideoId, validateVideoUrl, fetchVideoMetadata } = await import('@/lib/video-utils')
       
       if (!validateVideoUrl(formData.link)) {
         setError('Invalid video URL. Please use a valid YouTube or TikTok URL.')
@@ -60,6 +57,14 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
       const videoId = videoData.videoId
       const platform = videoData.platform
 
+      // Try to fetch title automatically if not provided
+      try {
+        const metadata = await fetchVideoMetadata(videoId, platform)
+        if (metadata?.title && !formData.title) {
+          setFormData(prev => ({ ...prev, title: metadata.title }))
+        }
+      } catch {}
+
       const { error: insertError } = await supabase
         .from('submissions')
         .insert({
@@ -69,16 +74,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
           video_id: videoId,
           submitter_id: user.id,
           contest_id: contest.id,
-          source: formData.source,
-          start_timestamp: formData.startTimestamp,
-          end_timestamp: formData.endTimestamp,
-          submission_comment: formData.comment,
-          metadata: {
-            source: formData.source,
-            start_timestamp: formData.startTimestamp,
-            end_timestamp: formData.endTimestamp,
-            comment: formData.comment
-          }
+          submission_comment: formData.comment
         })
 
       if (insertError) {
@@ -124,39 +120,6 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-4">
               <div>
-                <Label htmlFor="title" className="text-white font-medium text-sm mb-2 block">
-                       Tittel *
-                </Label>
-                <Input
-                  id="title"
-                  required
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  autoFocus
-                  className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:border-white/30 focus:border-white/50"
-                  placeholder="Enter title"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="source" className="text-white font-medium text-sm mb-2 block">
-                       Kilde *
-                </Label>
-                <Select
-                  value={formData.source}
-                  onValueChange={(value) => setFormData({ ...formData, source: value })}
-                >
-                  <SelectTrigger className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md hover:border-white/30 focus:border-white/50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#282828] border-white/20">
-                         <SelectItem value="YOUTUBE">YouTube</SelectItem>
-                         <SelectItem value="TIKTOK">TikTok</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
                 <Label htmlFor="link" className="text-white font-medium text-sm mb-2 block">
                        Lenke *
                 </Label>
@@ -164,37 +127,24 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
                   id="link"
                   required
                   value={formData.link}
-                  onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                  onChange={async (e) => {
+                    const url = e.target.value
+                    setFormData({ ...formData, link: url })
+                    try {
+                      const { extractVideoId, validateVideoUrl, fetchVideoMetadata } = await import('@/lib/video-utils')
+                      if (validateVideoUrl(url)) {
+                        const vd = extractVideoId(url)
+                        if (vd) {
+                          const md = await fetchVideoMetadata(vd.videoId, vd.platform)
+                          if (md?.title) {
+                            setFormData(prev => ({ ...prev, title: md.title }))
+                          }
+                        }
+                      }
+                    } catch {}
+                  }}
                   placeholder="https://youtube.com/watch?v=..."
                   className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:border-white/30 focus:border-white/50"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="startTimestamp" className="text-white font-medium text-sm mb-2 block">
-                       Start tidspunkt *
-                </Label>
-                <Input
-                  id="startTimestamp"
-                  required
-                  value={formData.startTimestamp}
-                  onChange={(e) => setFormData({ ...formData, startTimestamp: e.target.value })}
-                  placeholder="0:15"
-                  className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:bg-[rgb(24,24,24)] focus:bg-[rgb(24,24,24)]"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="endTimestamp" className="text-white font-medium text-sm mb-2 block">
-                       Slutt tidspunkt *
-                </Label>
-                <Input
-                  id="endTimestamp"
-                  required
-                  value={formData.endTimestamp}
-                  onChange={(e) => setFormData({ ...formData, endTimestamp: e.target.value })}
-                  placeholder="0:30"
-                  className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:bg-[rgb(24,24,24)] focus:bg-[rgb(24,24,24)]"
                 />
               </div>
 

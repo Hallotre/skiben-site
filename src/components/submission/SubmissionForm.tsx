@@ -124,20 +124,7 @@ export default function SubmissionForm({ onSubmit }: SubmissionFormProps) {
             )}
           </div>
 
-          <div>
-            <label htmlFor="title" className="block text-sm font-bold text-white mb-3">
-              TITLE *
-            </label>
-            <input
-              type="text"
-              id="title"
-              value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              placeholder="Enter video title"
-              className="bg-dark-600 border border-dark-500 text-white rounded-lg px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              required
-            />
-          </div>
+          {/* Title is auto-fetched from the video URL; no manual input */}
 
           <div>
             <label htmlFor="comment" className="block text-sm font-bold text-white mb-3">
