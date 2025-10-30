@@ -57,11 +57,26 @@ export function extractVideoId(url: string): { platform: Platform; videoId: stri
 }
 
 export async function fetchVideoMetadata(
-  videoId: string, 
+  videoId: string,
   platform: Platform,
   apiKey?: string
 ): Promise<VideoMetadata | null> {
   try {
+    // Prefer oEmbed when possible (no API key required)
+    if (platform === 'YOUTUBE') {
+      try {
+        const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`
+        const oembedRes = await fetch(oembedUrl)
+        if (oembedRes.ok) {
+          const oembed = await oembedRes.json()
+          return {
+            title: oembed.title,
+            thumbnail_url: oembed.thumbnail_url
+          }
+        }
+      } catch {}
+    }
+
     if (platform === 'YOUTUBE' && apiKey) {
       const response = await fetch(
         `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet&key=${apiKey}`
@@ -80,7 +95,7 @@ export async function fetchVideoMetadata(
     
     // Fallback: return basic info
     return {
-      title: `${platform} Video ${videoId}`,
+      title: 'Video',
       thumbnail_url: undefined
     }
   } catch (error: any) {

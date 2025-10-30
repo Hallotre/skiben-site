@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { extractVideoId, validateVideoUrl, fetchVideoMetadata } from '@/lib/video-utils'
+import { extractVideoId, validateVideoUrl } from '@/lib/video-utils'
 import { Submission, Platform } from '@/types'
 
 interface SubmissionFormProps {
@@ -11,7 +11,6 @@ interface SubmissionFormProps {
 
 export default function SubmissionForm({ onSubmit }: SubmissionFormProps) {
   const [formData, setFormData] = useState({
-    title: '',
     videoUrl: '',
     comment: ''
   })
@@ -36,11 +35,7 @@ export default function SubmissionForm({ onSubmit }: SubmissionFormProps) {
       if (videoData) {
         setVideoInfo(videoData)
         
-        // Try to fetch metadata
-        const metadata = await fetchVideoMetadata(videoData.videoId, videoData.platform)
-        if (metadata && metadata.title) {
-          setFormData(prev => ({ ...prev, title: metadata.title }))
-        }
+        // No title fetching
       }
     } else {
       setVideoInfo(null)
@@ -65,10 +60,11 @@ export default function SubmissionForm({ onSubmit }: SubmissionFormProps) {
         return
       }
 
+      // No title used/stored
+
       const { data, error } = await supabase
         .from('submissions')
         .insert({
-          title: formData.title,
           platform: videoInfo.platform,
           video_url: formData.videoUrl,
           video_id: videoInfo.videoId,
@@ -86,7 +82,7 @@ export default function SubmissionForm({ onSubmit }: SubmissionFormProps) {
       }
 
       setSuccess('Video submitted successfully!')
-      setFormData({ title: '', videoUrl: '', comment: '' })
+      setFormData({ videoUrl: '', comment: '' })
       setVideoInfo(null)
       
       if (onSubmit) {

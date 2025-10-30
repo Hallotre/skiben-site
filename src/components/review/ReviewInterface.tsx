@@ -20,11 +20,9 @@ interface ReviewInterfaceProps {
 
 export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
   const [submissions, setSubmissions] = useState<Submission[]>([])
-  const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]) // Store all submissions for filter checking
   const [currentIndex, setCurrentIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [contest, setContest] = useState<any>(null)
-  const [currentStatus, setCurrentStatus] = useState<'ALL' | 'DENIED' | 'UNAPPROVED' | 'APPROVED' | 'WINNER'>('APPROVED')
   const supabase = createClient()
 
   useEffect(() => {
@@ -32,7 +30,7 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
     if (contestId) {
       fetchContest()
     }
-  }, [contestId, currentStatus])
+  }, [contestId])
 
   const fetchContest = async () => {
     if (!contestId) return
@@ -57,36 +55,27 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
   const fetchSubmissions = async () => {
     setLoading(true)
     try {
-      // First fetch all submissions for filter checking
-      let allQuery = supabase
+      let query = supabase
         .from('submissions')
         .select(`
           *,
           submitter:profiles(*)
         `)
+        .eq('status', 'APPROVED')
         .order('created_at', { ascending: false })
 
-      // Filter by contest if contestId is provided
       if (contestId) {
-        allQuery = allQuery.eq('contest_id', contestId)
+        query = query.eq('contest_id', contestId)
       }
 
-      const { data: allData, error: allError } = await allQuery
+      const { data, error } = await query
 
-      if (allError) {
-        console.error('Error fetching all submissions:', allError)
-        return
+      if (error) {
+        console.error('Error fetching approved submissions:', error)
+        setSubmissions([])
+      } else {
+        setSubmissions(data || [])
       }
-
-      setAllSubmissions(allData || [])
-
-      // Then filter by status for display
-      let filteredData = allData || []
-      if (currentStatus !== 'ALL') {
-        filteredData = filteredData.filter(sub => sub.status === currentStatus)
-      }
-
-      setSubmissions(filteredData)
       setCurrentIndex(0) // Reset to first submission when changing filters
     } catch (error) {
       console.error('Error:', error)
@@ -124,9 +113,6 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
         setSubmissions(prev => prev.map(sub => 
           sub.id === submissionId ? { ...sub, status: newStatus } : sub
         ))
-        setAllSubmissions(prev => prev.map(sub => 
-          sub.id === submissionId ? { ...sub, status: newStatus } : sub
-        ))
       } catch (error) {
         console.error('Error updating submission:', error)
       }
@@ -155,7 +141,6 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
 
         // Remove submissions from banned user locally
         setSubmissions(prev => prev.filter(sub => sub.submitter_id !== userId))
-        setAllSubmissions(prev => prev.filter(sub => sub.submitter_id !== userId))
         
         // Adjust current index if needed
         if (currentIndex >= submissions.length - 1) {
@@ -181,7 +166,6 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
 
         // Remove deleted submission locally
         setSubmissions(prev => prev.filter(sub => sub.id !== submissionId))
-        setAllSubmissions(prev => prev.filter(sub => sub.id !== submissionId))
         
         // Adjust current index if needed
         if (currentIndex >= submissions.length - 1) {
@@ -231,34 +215,7 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Status Filter Buttons */}
-        <div className="flex gap-2 mb-6">
-          {(['ALL', 'DENIED', 'UNAPPROVED', 'APPROVED', 'WINNER'] as const).map(status => {
-            // Check if there are submissions for this status
-            const hasContent = status === 'ALL' ? allSubmissions.length > 0 : allSubmissions.some(sub => sub.status === status)
-            
-            return (
-              <Button
-                key={status}
-                variant={status === currentStatus ? 'default' : 'outline'}
-                onClick={() => hasContent && setCurrentStatus(status)}
-                disabled={!hasContent}
-                className={status === currentStatus 
-                  ? 'bg-green-600 hover:bg-green-700 text-white font-semibold' 
-                  : hasContent 
-                    ? 'border-green-600/30 bg-green-600/10 text-green-400 hover:bg-green-600/20 hover:text-green-300'
-                    : 'border-green-600/20 bg-green-600/5 text-green-500/50 cursor-not-allowed'
-                }
-              >
-                {status === 'ALL' && 'ALLE'}
-                {status === 'DENIED' && 'AVSLÅTT'}
-                {status === 'UNAPPROVED' && 'VENTENDE'}
-                {status === 'APPROVED' && 'GODKJENT'}
-                {status === 'WINNER' && 'VINNER'}
-              </Button>
-            )
-          })}
-        </div>
+        {/* Status filter removed: streamer sees only approved */}
 
         {/* Submission Info */}
         {currentSubmission && (
@@ -292,7 +249,6 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
                   <VideoPlayer
                     videoId={currentSubmission.video_id}
                     platform={currentSubmission.platform}
-                    title={currentSubmission.title}
                   />
                 </div>
               </div>
@@ -310,11 +266,8 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
 
             {/* Submission Details - Centered */}
             <div className="text-center space-y-2">
-              {/* Title and Submitter */}
+              {/* Submitter */}
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">
-                  {currentSubmission.title}
-                </h2>
                 <p className="text-slate-400 text-sm">
                   {currentSubmission.submitter?.username}
                 </p>
@@ -357,12 +310,14 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
                 <Switch
                   checked={currentSubmission.status === 'WINNER'}
                   onCheckedChange={() => handleWinnerToggle(currentSubmission.id)}
+                  className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-slate-700"
                 />
               </div>
               
               {/* Action Buttons Row */}
               <div className="grid grid-cols-2 gap-3">
                 <Button
+                  title="Slett denne innsendingen"
                   onClick={() => handleDeleteSubmission(currentSubmission.id)}
                   className="bg-red-600 hover:bg-red-700 text-white"
                 >
@@ -371,6 +326,7 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
                 </Button>
                 
                 <Button
+                  title="Utesteng denne brukeren"
                   onClick={() => handleBanUser(currentSubmission.submitter_id)}
                   className="bg-red-600 hover:bg-red-700 text-white"
                 >

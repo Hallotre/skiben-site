@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import VideoPlayer from '@/components/video/VideoPlayer'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { usePermissions } from '@/lib/permissions-client'
+import { Button as UIButton } from '@/components/ui/button'
 import { Trophy, CheckCircle, X, RotateCcw, Eye } from 'lucide-react'
 import ModerationActions from '@/components/moderation/ModerationActions'
 import Link from 'next/link'
@@ -23,9 +25,13 @@ export default function ModerationDashboard({ selectedContest, allContests }: Mo
   const [loading, setLoading] = useState(true)
   const [currentStatus, setCurrentStatus] = useState('UNAPPROVED')
   const supabase = createClient()
+  const { isModerator } = usePermissions()
+  const [canCopyIds, setCanCopyIds] = useState(false)
 
   useEffect(() => {
     fetchSubmissions()
+    // Check copy permission (mods/streamers/admins)
+    isModerator().then(setCanCopyIds).catch(() => setCanCopyIds(false))
   }, [selectedContest, currentStatus])
 
   const fetchSubmissions = async () => {
@@ -54,16 +60,22 @@ export default function ModerationDashboard({ selectedContest, allContests }: Mo
   }
 
   const handleStatusChange = (submissionId: string, newStatus: any) => {
-    // Update local state
-    setSubmissions(prev => prev.filter(sub => sub.id !== submissionId))
-    
-    // Refetch to get updated list
-    fetchSubmissions()
+    // Optimistically update without refetching or jumping scroll
+    setSubmissions(prev => {
+      const index = prev.findIndex(sub => sub.id === submissionId)
+      if (index === -1) return prev
+      // If the new status no longer matches the active filter, remove it locally
+      if (newStatus !== currentStatus) {
+        return prev.filter(sub => sub.id !== submissionId)
+      }
+      const updated = [...prev]
+      updated[index] = { ...updated[index], status: newStatus }
+      return updated
+    })
   }
 
   const handleBanUser = () => {
-    // Refetch to remove banned user's submissions
-    fetchSubmissions()
+    // No refetch; leave current list as-is. Separate actions will remove items.
   }
 
   const handleDeleteSubmission = (submissionId: string) => {
@@ -135,11 +147,45 @@ export default function ModerationDashboard({ selectedContest, allContests }: Mo
               <p className="text-sm text-slate-400 mt-1">Alle konkurranser</p>
             )}
           </div>
-          {selectedContestInfo && selectedContest !== 'all' && (
-            <Badge className="bg-blue-600 text-white">
-              {selectedContestInfo.title}
-            </Badge>
-          )}
+          <div className="flex items-center gap-3">
+            {currentStatus === 'WINNER' && canCopyIds && submissions.length > 0 && (
+              <UIButton
+                onClick={() => {
+                  // Build CSV with headers (only id, platform, submitter, video_url)
+                  const rows = submissions.map(s => ({
+                    id: s.id,
+                    platform: s.platform,
+                    submitter: (s as any).submitter?.username || '',
+                    video_url: s.video_url
+                  }))
+                  const headers = ['id','platform','submitter','video_url']
+                  const escape = (v: any) => {
+                    const str = String(v ?? '')
+                    if (/[",\n]/.test(str)) return '"' + str.replace(/"/g, '""') + '"'
+                    return str
+                  }
+                  const content = [headers.join(','), ...rows.map(r => headers.map(h => escape((r as any)[h])).join(','))].join('\n')
+                  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `winners${selectedContest && selectedContest !== 'all' ? `-${String(selectedContest).substring(0,8)}` : ''}.csv`
+                  document.body.appendChild(a)
+                  a.click()
+                  a.remove()
+                  URL.revokeObjectURL(url)
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Eksporter CSV
+              </UIButton>
+            )}
+            {selectedContestInfo && selectedContest !== 'all' && (
+              <Badge className="bg-blue-600 text-white">
+                {selectedContestInfo.title}
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 
@@ -181,7 +227,6 @@ export default function ModerationDashboard({ selectedContest, allContests }: Mo
                     <VideoPlayer
                       videoId={submission.video_id}
                       platform={submission.platform}
-                      title={submission.title}
                     />
                   </div>
 
@@ -189,12 +234,13 @@ export default function ModerationDashboard({ selectedContest, allContests }: Mo
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h3 className="text-xl font-bold text-white mb-1">{submission.title}</h3>
-                        <p className="text-sm text-slate-400">{submission.video_url}</p>
+                      <p className="text-sm text-slate-400">{submission.video_url}</p>
                       </div>
+                    <div className="flex items-center gap-2">
                       <Badge className={`${getStatusColor(submission.status)} text-white font-bold`}>
                         {submission.status}
                       </Badge>
+                    </div>
                     </div>
 
                     {submission.submitter && (

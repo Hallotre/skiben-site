@@ -30,7 +30,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co *.twitch.tv; style-src 'self' 'unsafe-inline' *.googleapis.com; font-src 'self' data: *.googleapis.com *.gstatic.com; img-src 'self' data: blob: *.supabase.co *.googleusercontent.com *.twitch.tv *.jtvnw.net static-cdn.jtvnw.net *.7tv.app cdn.7tv.app; connect-src 'self' *.supabase.co *.twitch.tv; frame-src 'self' *.youtube.com *.tiktok.com *.twitch.tv;"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co *.twitch.tv; style-src 'self' 'unsafe-inline' *.googleapis.com; font-src 'self' data: *.googleapis.com *.gstatic.com; img-src 'self' data: blob: *.supabase.co *.googleusercontent.com *.twitch.tv *.jtvnw.net static-cdn.jtvnw.net *.7tv.app cdn.7tv.app i.ytimg.com; connect-src 'self' *.supabase.co *.twitch.tv *.youtube.com *.googleapis.com www.youtube.com www.googleapis.com; frame-src 'self' *.youtube.com *.tiktok.com *.twitch.tv;"
           }
         ]
       }

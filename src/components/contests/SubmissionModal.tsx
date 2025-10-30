@@ -40,8 +40,8 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
         return
       }
 
-      // SECURITY: Use validated video extraction and metadata
-      const { extractVideoId, validateVideoUrl, fetchVideoMetadata } = await import('@/lib/video-utils')
+      // SECURITY: Use validated video extraction
+      const { extractVideoId, validateVideoUrl } = await import('@/lib/video-utils')
       
       if (!validateVideoUrl(formData.link)) {
         setError('Invalid video URL. Please use a valid YouTube or TikTok URL.')
@@ -57,18 +57,9 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
       const videoId = videoData.videoId
       const platform = videoData.platform
 
-      // Try to fetch title automatically if not provided
-      try {
-        const metadata = await fetchVideoMetadata(videoId, platform)
-        if (metadata?.title && !formData.title) {
-          setFormData(prev => ({ ...prev, title: metadata.title }))
-        }
-      } catch {}
-
       const { error: insertError } = await supabase
         .from('submissions')
         .insert({
-          title: formData.title,
           platform: platform as any,
           video_url: formData.link,
           video_id: videoId,
@@ -127,21 +118,9 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
                   id="link"
                   required
                   value={formData.link}
-                  onChange={async (e) => {
+                  onChange={(e) => {
                     const url = e.target.value
                     setFormData({ ...formData, link: url })
-                    try {
-                      const { extractVideoId, validateVideoUrl, fetchVideoMetadata } = await import('@/lib/video-utils')
-                      if (validateVideoUrl(url)) {
-                        const vd = extractVideoId(url)
-                        if (vd) {
-                          const md = await fetchVideoMetadata(vd.videoId, vd.platform)
-                          if (md?.title) {
-                            setFormData(prev => ({ ...prev, title: md.title }))
-                          }
-                        }
-                      }
-                    } catch {}
                   }}
                   placeholder="https://youtube.com/watch?v=..."
                   className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:border-white/30 focus:border-white/50"
