@@ -241,6 +241,13 @@ export default function ContestsPage() {
                     {contest.title}
                   </h3>
 
+                  {/* Description */}
+                  {contest.description && (
+                    <p className="text-gray-300 text-sm mb-3 leading-relaxed">
+                      {contest.description}
+                    </p>
+                  )}
+
                   {/* Submissions count */}
                   <p className="text-blue-600 font-bold text-base uppercase tracking-wider">
                     {contest.submission_count} INNSENDINGER
