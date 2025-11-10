@@ -4,12 +4,13 @@ import { createClient } from '@/utils/supabase/client'
 import { UserRole } from '@/types'
 
 // Helper function to add timeout to async operations
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 5000): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number = 5000): Promise<T> {
+  const wrappedPromise = Promise.resolve(promise)
   return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => 
+    wrappedPromise,
+    new Promise<T>((_, reject) =>
       setTimeout(() => reject(new Error('Permission check timed out')), timeoutMs)
-    ) as Promise<T>
+    )
   ])
 }
 
@@ -19,20 +20,25 @@ export function usePermissions() {
   
   const checkRole = async (requiredRoles: UserRole[]): Promise<boolean> => {
     try {
-      const getUserPromise = supabase.auth.getUser()
-      const { data: { user } } = await withTimeout(getUserPromise, 5000)
+      const userResponse = await withTimeout(
+        supabase.auth.getUser(),
+        5000
+      ) as { data: { user: { id: string } | null } }
+      const user = userResponse.data.user
       if (!user) return false
       
-      const profilePromise = supabase
-        .from('profiles')
-        .select('role, is_banned')
-        .eq('id', user.id)
-        .single()
-      
-      const { data: profile, error } = await withTimeout(profilePromise, 5000)
-      
-      if (error || !profile) return false
-      
+      const profileResponse = await withTimeout(
+        supabase
+          .from('profiles')
+          .select('role, is_banned')
+          .eq('id', user.id)
+          .single(),
+        5000
+      ) as { data: { role: string; is_banned: boolean } | null; error: any }
+
+      if (profileResponse.error || !profileResponse.data) return false
+
+      const profile = profileResponse.data
       return !profile.is_banned && requiredRoles.includes(profile.role as UserRole)
     } catch (error) {
       console.error('Error checking role:', error)
@@ -48,9 +54,11 @@ export function usePermissions() {
     hasAdminPrivileges: () => checkRole(['ADMIN']),
     isAuthenticated: async () => {
       try {
-        const getUserPromise = supabase.auth.getUser()
-        const { data: { user } } = await withTimeout(getUserPromise, 5000)
-        return !!user
+        const userResponse = await withTimeout(
+          supabase.auth.getUser(),
+          5000
+        ) as { data: { user: { id: string } | null } }
+        return !!userResponse.data.user
       } catch (error) {
         console.error('Error checking authentication:', error)
         return false
