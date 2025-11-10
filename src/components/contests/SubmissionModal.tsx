@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Contest } from '@/types'
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog'
@@ -28,6 +28,31 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const supabase = createClient()
+
+  // Reset form state when modal opens or contest changes
+  useEffect(() => {
+    // Reset all state when contest changes or modal opens
+    setFormData({
+      title: '',
+      link: '',
+      comment: ''
+    })
+    setLoading(false)
+    setError('')
+    setSuccess(false)
+    
+    // Cleanup function to reset state when component unmounts
+    return () => {
+      setFormData({
+        title: '',
+        link: '',
+        comment: ''
+      })
+      setLoading(false)
+      setError('')
+      setSuccess(false)
+    }
+  }, [contest.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

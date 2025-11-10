@@ -275,6 +275,7 @@ export default function ContestsPage() {
       {/* Submission Modal */}
       {selectedContest && (
         <SubmissionModal
+          key={selectedContest.id}
           contest={selectedContest}
           onClose={() => setSelectedContest(null)}
           onSubmitSuccess={handleSubmitSuccess}
