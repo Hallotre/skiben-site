@@ -29,9 +29,37 @@ export default function ModerationDashboard({ selectedContest, allContests }: Mo
   const [canCopyIds, setCanCopyIds] = useState(false)
 
   useEffect(() => {
-    fetchSubmissions()
-    // Check copy permission (mods/streamers/admins)
-    isModerator().then(setCanCopyIds).catch(() => setCanCopyIds(false))
+    let isMounted = true
+    
+    const loadData = async () => {
+      await fetchSubmissions()
+      
+      // Check copy permission (mods/streamers/admins) with timeout
+      if (isMounted) {
+        try {
+          const canCopy = await Promise.race([
+            isModerator(),
+            new Promise<boolean>((resolve) => 
+              setTimeout(() => resolve(false), 5000)
+            )
+          ])
+          if (isMounted) {
+            setCanCopyIds(canCopy)
+          }
+        } catch (error) {
+          console.error('Error checking moderator permission:', error)
+          if (isMounted) {
+            setCanCopyIds(false)
+          }
+        }
+      }
+    }
+    
+    loadData()
+    
+    return () => {
+      isMounted = false
+    }
   }, [selectedContest, currentStatus])
 
   const fetchSubmissions = async () => {

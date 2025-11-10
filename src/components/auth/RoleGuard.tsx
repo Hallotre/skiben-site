@@ -22,9 +22,12 @@ export default function RoleGuard({
   const { checkRole } = usePermissions()
 
   useEffect(() => {
+    let isMounted = true
     const checkAccess = async () => {
       try {
         const access = await checkRole(requiredRoles)
+        if (!isMounted) return
+        
         setHasAccess(access)
         
         if (!access) {
@@ -33,14 +36,22 @@ export default function RoleGuard({
         }
       } catch (error) {
         console.error('Error checking permissions:', error)
-        setHasAccess(false)
+        if (isMounted) {
+          setHasAccess(false)
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
     checkAccess()
-  }, [checkRole, requiredRoles, router])
+    
+    return () => {
+      isMounted = false
+    }
+  }, [requiredRoles, router]) // Removed checkRole from dependencies to avoid infinite loops
 
   if (loading) {
     return (
