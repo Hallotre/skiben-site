@@ -179,8 +179,9 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
                   id="comment"
                   value={formData.comment}
                   onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
+                  placeholder="HVIS LENGRE VIDEO, GJERNE SPESIFISER TIMESTAMP"
                   rows={4}
-                  className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:bg-[rgb(24,24,24)] focus:bg-[rgb(24,24,24)]"
+                  className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:bg-[rgb(24,24,24)] focus:bg-[rgb(24,24,24)] placeholder:text-white/40"
                 />
               </div>
 
