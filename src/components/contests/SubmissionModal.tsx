@@ -37,6 +37,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setError('You must be logged in to submit')
+        setLoading(false)
         return
       }
 
@@ -45,21 +46,27 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
       
       if (!validateVideoUrl(formData.link)) {
         setError('Invalid video URL. Please use a valid YouTube or TikTok URL.')
+        setLoading(false)
         return
       }
 
       const videoData = extractVideoId(formData.link)
       if (!videoData || !videoData.videoId) {
         setError('Could not extract video ID from URL')
+        setLoading(false)
         return
       }
 
       const videoId = videoData.videoId
       const platform = videoData.platform
 
+      // Generate a title from the video URL or use a default
+      const title = formData.title.trim() || formData.link || `Video Submission - ${platform}`
+
       const { error: insertError } = await supabase
         .from('submissions')
         .insert({
+          title: title,
           platform: platform as any,
           video_url: formData.link,
           video_id: videoId,
@@ -70,6 +77,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
 
       if (insertError) {
         setError(insertError.message)
+        setLoading(false)
         return
       }
 
@@ -78,6 +86,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
     } catch (err: any) {
       setError('An unexpected error occurred')
       console.error('Submission error:', err?.message || 'Unknown error')
+      setLoading(false)
     } finally {
       setLoading(false)
     }

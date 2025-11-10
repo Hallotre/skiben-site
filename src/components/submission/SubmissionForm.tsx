@@ -60,11 +60,13 @@ export default function SubmissionForm({ onSubmit }: SubmissionFormProps) {
         return
       }
 
-      // No title used/stored
+      // Generate a title from the video URL or use a default
+      const title = formData.videoUrl || `Video Submission - ${videoInfo.platform}`
 
       const { data, error } = await supabase
         .from('submissions')
         .insert({
+          title: title,
           platform: videoInfo.platform,
           video_url: formData.videoUrl,
           video_id: videoInfo.videoId,
