@@ -32,9 +32,17 @@ export function extractVideoId(url: string): { platform: Platform; videoId: stri
       let videoId: string | null = null
       
       if (hostname.includes('youtu.be')) {
+        // Short format: https://youtu.be/VIDEO_ID
         videoId = urlObj.pathname.slice(1)
       } else if (hostname.includes('youtube.com')) {
-        videoId = urlObj.searchParams.get('v')
+        // Check for YouTube Shorts: https://youtube.com/shorts/VIDEO_ID
+        const shortsMatch = urlObj.pathname.match(/^\/shorts\/([a-zA-Z0-9_-]+)/)
+        if (shortsMatch) {
+          videoId = shortsMatch[1]
+        } else {
+          // Regular video: https://youtube.com/watch?v=VIDEO_ID
+          videoId = urlObj.searchParams.get('v')
+        }
       }
       
       if (videoId && videoId.trim() !== '') {

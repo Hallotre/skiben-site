@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 // removed select for source; auto-detect from URL
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { X } from 'lucide-react'
+import { X, CheckCircle2 } from 'lucide-react'
 
 interface SubmissionModalProps {
   contest: Contest
@@ -26,6 +26,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
   const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,7 +46,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
       const { extractVideoId, validateVideoUrl } = await import('@/lib/video-utils')
       
       if (!validateVideoUrl(formData.link)) {
-        setError('Invalid video URL. Please use a valid YouTube or TikTok URL.')
+        setError('Invalid video URL. Please use a valid YouTube, YouTube Shorts, or TikTok URL.')
         setLoading(false)
         return
       }
@@ -63,7 +64,10 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
       // Generate a title from the video URL or use a default
       const title = formData.title.trim() || formData.link || `Video Submission - ${platform}`
 
-      const { error: insertError } = await supabase
+      // Handle comment - preserve the comment as-is (empty string or actual comment)
+      const comment = formData.comment.trim()
+
+      const { error: insertError, data: insertData } = await supabase
         .from('submissions')
         .insert({
           title: title,
@@ -72,20 +76,34 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
           video_id: videoId,
           submitter_id: user.id,
           contest_id: contest.id,
-          submission_comment: formData.comment
+          submission_comment: comment || null
         })
+        .select()
 
       if (insertError) {
-        setError(insertError.message)
+        console.error('Insert error details:', insertError)
+        console.error('Error code:', insertError.code)
+        console.error('Error details:', insertError.details)
+        console.error('Error hint:', insertError.hint)
+        setError(insertError.message || 'Failed to submit. Please try again.')
         setLoading(false)
         return
       }
 
-      onSubmitSuccess()
-      onClose()
+      // Show success animation
+      setSuccess(true)
+      setLoading(false)
+      
+      // Wait a moment to show the success animation, then close
+      setTimeout(() => {
+        onSubmitSuccess()
+        onClose()
+      }, 1500)
     } catch (err: any) {
-      setError('An unexpected error occurred')
-      console.error('Submission error:', err?.message || 'Unknown error')
+      console.error('Submission error:', err)
+      console.error('Error message:', err?.message)
+      console.error('Error stack:', err?.stack)
+      setError(err?.message || 'An unexpected error occurred. Please check the console for details.')
       setLoading(false)
     } finally {
       setLoading(false)
@@ -112,12 +130,29 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
         </DialogHeader>
         
         <div className="text-center mt-2">
-          {/* SUBMISSION Heading */}
-               <h3 className="text-white font-bold mb-4 text-2xl uppercase tracking-wider">
-                 INNSENDING
-               </h3>
+          {/* Success Animation */}
+          {success && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
+              <div className="flex flex-col items-center gap-4 animate-scale-in">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-green-500/20 rounded-full blur-xl animate-pulse"></div>
+                  <CheckCircle2 className="relative h-20 w-20 text-green-500 animate-scale-in" />
+                </div>
+                <p className="text-white font-bold text-xl uppercase tracking-wider animate-slide-up">
+                  INNSENDING SENDT!
+                </p>
+              </div>
+            </div>
+          )}
 
-          <form onSubmit={handleSubmit}>
+          {/* SUBMISSION Heading */}
+          {!success && (
+            <>
+              <h3 className="text-white font-bold mb-4 text-2xl uppercase tracking-wider">
+                INNSENDING
+              </h3>
+
+              <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-4">
               <div>
                 <Label htmlFor="link" className="text-white font-medium text-sm mb-2 block">
@@ -131,7 +166,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
                     const url = e.target.value
                     setFormData({ ...formData, link: url })
                   }}
-                  placeholder="https://youtube.com/watch?v=..."
+                  placeholder="https://youtube.com/watch?v=... or https://youtube.com/shorts/..."
                   className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:border-white/30 focus:border-white/50"
                 />
               </div>
@@ -168,6 +203,8 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
               </div>
             </div>
           </form>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
