@@ -61,7 +61,7 @@ export default function ContestsPage() {
           ...contest,
           submission_count: Array.isArray(contest.submission_count)
             ? (contest.submission_count[0]?.count ?? 0)
-            : (contest.submission_count ?? 0)
+            : (contest.submission_count?.count ?? contest.submission_count ?? 0)
         }))
 
         // Sort: active contests first, then by most recent
