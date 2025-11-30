@@ -21,16 +21,35 @@ export default function ContestsPage() {
   }, [])
 
   const fetchContests = async () => {
+    // Set a timeout to ensure loading always stops
+    const timeoutId = setTimeout(() => {
+      console.error('Fetch contests timeout - forcing loading to stop')
+      setLoading(false)
+      setContests([])
+    }, 5000) // 5 second timeout
+
     try {
       setLoading(true)
       
+      console.log('Starting to fetch contests...')
+      
       // Fetch contests without nested query to avoid hanging
-      const { data: contestsData, error: contestsError } = await supabase
+      const queryPromise = supabase
         .from('contests')
         .select('id, title, description, status, display_number, tags, created_at, updated_at')
         .eq('status', 'ACTIVE')
         .order('created_at', { ascending: false })
         .limit(50)
+
+      // Race the query against a timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Query timeout')), 5000)
+      )
+
+      const result = await Promise.race([queryPromise, timeoutPromise]) as any
+      clearTimeout(timeoutId)
+
+      const { data: contestsData, error: contestsError } = result
 
       if (contestsError) {
         console.error('Error fetching contests:', contestsError)
@@ -39,13 +58,15 @@ export default function ContestsPage() {
         return
       }
 
+      console.log('Contests fetched:', contestsData?.length || 0)
+
       if (!contestsData || contestsData.length === 0) {
         setContests([])
         setLoading(false)
         return
       }
 
-      // Set contests immediately with 0 counts, then fetch counts in background
+      // Set contests immediately with 0 counts
       const contestsWithZeroCounts = contestsData.map((contest: any) => ({
         ...contest,
         submission_count: 0
@@ -54,36 +75,36 @@ export default function ContestsPage() {
       setContests(contestsWithZeroCounts)
       setLoading(false)
 
-      // Fetch submission counts in background (non-blocking)
-      try {
-        const contestIds = contestsData.map((c: any) => c.id)
-        const { data: submissionsData } = await supabase
-          .from('submissions')
-          .select('contest_id')
-          .in('contest_id', contestIds)
+      // Fetch submission counts in background (non-blocking, no await)
+      setTimeout(async () => {
+        try {
+          const contestIds = contestsData.map((c: any) => c.id)
+          const { data: submissionsData } = await supabase
+            .from('submissions')
+            .select('contest_id')
+            .in('contest_id', contestIds)
 
-        // Count submissions per contest
-        const countsMap = new Map<string, number>()
-        if (submissionsData) {
-          submissionsData.forEach((sub: any) => {
-            if (sub.contest_id) {
-              countsMap.set(sub.contest_id, (countsMap.get(sub.contest_id) || 0) + 1)
-            }
-          })
+          const countsMap = new Map<string, number>()
+          if (submissionsData) {
+            submissionsData.forEach((sub: any) => {
+              if (sub.contest_id) {
+                countsMap.set(sub.contest_id, (countsMap.get(sub.contest_id) || 0) + 1)
+              }
+            })
+          }
+
+          const contestsWithCounts = contestsData.map((contest: any) => ({
+            ...contest,
+            submission_count: countsMap.get(contest.id) || 0
+          }))
+
+          setContests(contestsWithCounts)
+        } catch (countError) {
+          console.warn('Error fetching submission counts:', countError)
         }
-
-        // Update contests with actual counts
-        const contestsWithCounts = contestsData.map((contest: any) => ({
-          ...contest,
-          submission_count: countsMap.get(contest.id) || 0
-        }))
-
-        setContests(contestsWithCounts)
-      } catch (countError) {
-        console.warn('Error fetching submission counts:', countError)
-        // Contests are already displayed, so we can ignore this error
-      }
+      }, 0)
     } catch (error: any) {
+      clearTimeout(timeoutId)
       console.error('Error fetching contests:', error)
       setContests([])
       setLoading(false)
