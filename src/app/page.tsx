@@ -31,6 +31,7 @@ export default function ContestsPage() {
   const supabase = useMemo(() => createClient(), [])
   const abortControllerRef = useRef<AbortController | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastSuccessfulFetchRef = useRef<Contest[] | null>(null)
 
   useEffect(() => {
     fetchContests().catch((error) => {
@@ -61,62 +62,119 @@ export default function ContestsPage() {
   }
 
   const fetchContests = async (retryCount = 0) => {
-    // Abort any previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
+    // Prevent multiple simultaneous calls
     if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
+      console.log('Fetch already in progress, skipping...')
+      return
     }
 
     try {
       setLoadingContests(true)
       
-      // Create new abort controller for this request
-      const abortController = new AbortController()
-      abortControllerRef.current = abortController
+      // Create a fresh Supabase client for each request to avoid state issues
+      const freshSupabase = createClient()
+      
+      // Log before query
+      console.log('Executing Supabase query...', { retryCount })
+      const queryStart = performance.now()
 
-      // Set a timeout to force stop loading after 8 seconds
+      // Set a timeout to force stop loading after 5 seconds
+      let queryCompleted = false
       timeoutRef.current = setTimeout(() => {
-        if (abortControllerRef.current === abortController) {
+        if (!queryCompleted) {
           console.warn('Query timeout - forcing loading to stop')
-          abortController.abort()
+          queryCompleted = true
           setLoadingContests(false)
           // Retry once if we haven't retried yet
           if (retryCount === 0) {
             console.log('Retrying fetchContests...')
+            timeoutRef.current = null
             setTimeout(() => fetchContests(1), 1000)
           } else {
-            setContests([])
+            console.error('Retry also failed, showing cached data if available')
+            timeoutRef.current = null
+            // Show last successful fetch if available, otherwise empty
+            if (lastSuccessfulFetchRef.current && lastSuccessfulFetchRef.current.length > 0) {
+              console.log('Showing cached contests from last successful fetch')
+              setContests(lastSuccessfulFetchRef.current)
+            } else {
+              setContests([])
+            }
           }
         }
-      }, 8000)
+      }, 5000)
 
-      // Simple query with retry logic
-      let contestsData, contestsError
-      try {
-        const result = await supabase
-          .from('contests')
-          .select('id, title, description, status, display_number, tags, created_at, updated_at')
-          .order('created_at', { ascending: false })
-          .limit(50)
-        
-        contestsData = result.data
-        contestsError = result.error
-      } catch (err: any) {
-        // Handle abort or other errors
-        if (err.name === 'AbortError') {
-          console.log('Query was aborted')
-          return
-        }
-        throw err
+      // Simple query - let it complete naturally
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase configuration missing')
       }
-
+      
+      console.log('Making Supabase request...')
+      
+      // Try the query with a wrapper that will timeout if it hangs
+      let result: any
+      try {
+        // Create a promise that will reject after 4 seconds if query doesn't complete
+        const queryWithTimeout = Promise.race([
+          freshSupabase
+            .from('contests')
+            .select('id, title, description, status, display_number, tags, created_at, updated_at')
+            .order('created_at', { ascending: false })
+            .limit(50),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Query timeout')), 4000)
+          )
+        ])
+        
+        result = await queryWithTimeout
+      } catch (timeoutError: any) {
+        // If timeout, try direct fetch as fallback
+        if (timeoutError.message === 'Query timeout') {
+          console.warn('Supabase client timed out, trying direct fetch...')
+          try {
+            const response = await fetch(
+              `${supabaseUrl}/rest/v1/contests?select=id,title,description,status,display_number,tags,created_at,updated_at&order=created_at.desc&limit=50`,
+              {
+                headers: {
+                  'apikey': supabaseKey,
+                  'Authorization': `Bearer ${supabaseKey}`,
+                  'Content-Type': 'application/json',
+                }
+              }
+            )
+            
+            if (!response.ok) {
+              throw new Error(`Fetch failed: ${response.status}`)
+            }
+            
+            const data = await response.json()
+            result = { data, error: null }
+            console.log('Direct fetch succeeded!')
+          } catch (fetchError) {
+            console.error('Direct fetch also failed:', fetchError)
+            throw timeoutError // Throw original timeout error
+          }
+        } else {
+          throw timeoutError
+        }
+      }
+      
+      queryCompleted = true
+      
       // Clear timeout since we got a response
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
         timeoutRef.current = null
       }
+      
+      const queryEnd = performance.now()
+      console.log(`Query completed in ${(queryEnd - queryStart).toFixed(2)}ms`)
+      
+      const contestsData = result.data
+      const contestsError = result.error
 
       if (contestsError) {
         console.error('Error fetching contests:', contestsError)
@@ -151,6 +209,7 @@ export default function ContestsPage() {
       })
       
       setContests(sortedData)
+      lastSuccessfulFetchRef.current = sortedData // Cache successful fetch
       setLoadingContests(false)
 
       // Fetch submission counts in background (non-blocking)
