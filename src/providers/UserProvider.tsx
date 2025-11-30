@@ -64,17 +64,14 @@ export default function UserProvider({
 
     const initUser = async () => {
       try {
-        // Only try to get user if we don't have one yet
-        if (!user) {
-          const { data: { user: currentUser } } = await supabase.auth.getUser()
-          
-          if (mounted) {
-            setUser(currentUser)
-            if (currentUser) {
-              const profileData = await fetchProfile(currentUser.id)
-              if (mounted) {
-                setProfile(profileData)
-              }
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        
+        if (mounted) {
+          setUser(currentUser)
+          if (currentUser) {
+            const profileData = await fetchProfile(currentUser.id)
+            if (mounted) {
+              setProfile(profileData)
             }
           }
         }

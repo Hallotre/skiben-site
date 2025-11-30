@@ -60,11 +60,6 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
     setError('')
 
     try {
-      if (!supabase) {
-        setError('Database connection error')
-        setLoading(false)
-        return
-      }
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setError('You must be logged in to submit')
@@ -96,12 +91,6 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
 
       // Handle comment - preserve the comment as-is (empty string or actual comment)
       const comment = formData.comment.trim()
-
-      if (!supabase) {
-        setError('Database connection error')
-        setLoading(false)
-        return
-      }
 
       const { error: insertError, data: insertData } = await supabase
         .from('submissions')

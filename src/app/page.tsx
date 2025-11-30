@@ -23,19 +23,19 @@ const TwitchIcon = () => (
   </svg>
 )
 
+const supabase = createClient()
+
 export default function ContestsPage() {
   const [contests, setContests] = useState<Contest[]>([])
   const [loadingContests, setLoadingContests] = useState(true)
   const [selectedContest, setSelectedContest] = useState<Contest | null>(null)
   const { user, profile } = useUser()
-  const supabase = createClient()
 
   useEffect(() => {
     fetchContests()
   }, [])
 
   const handleConnect = async () => {
-    if (!supabase) return
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'twitch',
       options: {
@@ -46,81 +46,35 @@ export default function ContestsPage() {
   }
 
   const fetchContests = async () => {
-    if (!supabase) return
     try {
-      // Create a timeout promise that rejects after 5 seconds
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timed out')), 5000)
-      })
-
-      // Fetch contests without the join first to ensure page loads
-      const dbPromise = supabase
+      const { data, error } = await supabase
         .from('contests')
-        .select('id, title, description, status, display_number, tags, created_at, updated_at')
+        .select('id, title, description, status, display_number, tags, created_at, updated_at, submission_count:submissions(count)')
         .order('created_at', { ascending: false })
-
-      // Race the DB request against the timeout
-      const { data, error } = await Promise.race([dbPromise, timeoutPromise]) as any
 
       if (error) {
         console.error('Error fetching contests:', error)
         setContests([])
       } else {
-        // For now, set submission_count to 0 to avoid join issues
-        const contestsData = (data || []).map((contest: any) => ({
+        // Normalize submission_count to a number
+        const normalized = (data || []).map((contest: any) => ({
           ...contest,
-          submission_count: 0
+          submission_count: Array.isArray(contest.submission_count)
+            ? (contest.submission_count[0]?.count ?? 0)
+            : (contest.submission_count ?? 0)
         }))
 
         // Sort: active contests first, then by most recent
-        const sortedData = contestsData.sort((a: any, b: any) => {
+        const sortedData = normalized.sort((a, b) => {
           if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
           if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         })
         setContests(sortedData)
-        // Force loading state off immediately
-        setLoadingContests(false)
-        
-        // Fetch counts separately in background
-        const fetchCounts = async () => {
-          try {
-            // Only fetch counts for active or recent contests to optimize
-            // For now just doing all for correctness but could be optimized
-            const updatedContests = [...sortedData]
-            let hasUpdates = false
-            
-            await Promise.all(updatedContests.map(async (contest, index) => {
-              // Add a small timeout for count fetches too so they don't hang indefinitely
-              const countTimeout = new Promise((resolve) => setTimeout(() => resolve({ count: 0 }), 3000))
-              if (!supabase) return
-              const countPromise = supabase
-                .from('submissions')
-                .select('*', { count: 'exact', head: true })
-                .eq('contest_id', contest.id)
-              
-              const { count } = await Promise.race([countPromise, countTimeout]) as any
-              
-              if (count !== null && count !== undefined) {
-                updatedContests[index].submission_count = count
-                hasUpdates = true
-              }
-            }))
-            
-            if (hasUpdates) {
-              setContests([...updatedContests])
-            }
-          } catch (err) {
-            console.error('Error fetching submission counts:', err)
-          }
-        }
-
-        // Execute background fetch without awaiting
-        fetchCounts()
       }
     } catch (error) {
       console.error('Error:', error)
-      // Ensure loading state is turned off even on timeout/error
+    } finally {
       setLoadingContests(false)
     }
   }
