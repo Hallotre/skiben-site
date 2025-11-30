@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Contest } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -28,10 +28,26 @@ export default function ContestsPage() {
   const [loadingContests, setLoadingContests] = useState(true)
   const [selectedContest, setSelectedContest] = useState<Contest | null>(null)
   const { user, profile } = useUser()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    fetchContests()
+    fetchContests().catch((error) => {
+      console.error('fetchContests error:', error)
+      setLoadingContests(false)
+      setContests([])
+    })
+
+    // Cleanup on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
   }, [])
 
   const handleConnect = async () => {
@@ -44,26 +60,76 @@ export default function ContestsPage() {
     if (error) console.error('Error signing in:', error)
   }
 
-  const fetchContests = async () => {
+  const fetchContests = async (retryCount = 0) => {
+    // Abort any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+
     try {
       setLoadingContests(true)
-      console.log('Starting to fetch contests...')
       
-      // Simple query - if it's fast in SQL, it should be fast here
-      const { data: contestsData, error: contestsError } = await supabase
-        .from('contests')
-        .select('id, title, description, status, display_number, tags, created_at, updated_at')
-        .order('created_at', { ascending: false })
-        .limit(50)
+      // Create new abort controller for this request
+      const abortController = new AbortController()
+      abortControllerRef.current = abortController
+
+      // Set a timeout to force stop loading after 8 seconds
+      timeoutRef.current = setTimeout(() => {
+        if (abortControllerRef.current === abortController) {
+          console.warn('Query timeout - forcing loading to stop')
+          abortController.abort()
+          setLoadingContests(false)
+          // Retry once if we haven't retried yet
+          if (retryCount === 0) {
+            console.log('Retrying fetchContests...')
+            setTimeout(() => fetchContests(1), 1000)
+          } else {
+            setContests([])
+          }
+        }
+      }, 8000)
+
+      // Simple query with retry logic
+      let contestsData, contestsError
+      try {
+        const result = await supabase
+          .from('contests')
+          .select('id, title, description, status, display_number, tags, created_at, updated_at')
+          .order('created_at', { ascending: false })
+          .limit(50)
+        
+        contestsData = result.data
+        contestsError = result.error
+      } catch (err: any) {
+        // Handle abort or other errors
+        if (err.name === 'AbortError') {
+          console.log('Query was aborted')
+          return
+        }
+        throw err
+      }
+
+      // Clear timeout since we got a response
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
 
       if (contestsError) {
         console.error('Error fetching contests:', contestsError)
+        // Retry once on error
+        if (retryCount === 0) {
+          console.log('Retrying after error...')
+          setTimeout(() => fetchContests(1), 1000)
+          return
+        }
         setContests([])
         setLoadingContests(false)
         return
       }
-
-      console.log('Contests fetched:', contestsData?.length || 0)
 
       if (!contestsData || contestsData.length === 0) {
         setContests([])
@@ -121,7 +187,21 @@ export default function ContestsPage() {
         }
       }, 0)
     } catch (error: any) {
+      // Clear timeout on error
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+      
       console.error('Error fetching contests:', error)
+      
+      // Retry once if we haven't retried yet and it's not an abort error
+      if (retryCount === 0 && error.name !== 'AbortError') {
+        console.log('Retrying after catch error...')
+        setTimeout(() => fetchContests(1), 1000)
+        return
+      }
+      
       setContests([])
       setLoadingContests(false)
     }
