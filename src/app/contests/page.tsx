@@ -35,42 +35,57 @@ export default function ContestsPage() {
       if (contestsError) {
         console.error('Error fetching contests:', contestsError)
         setContests([])
+        setLoading(false)
         return
       }
 
       if (!contestsData || contestsData.length === 0) {
         setContests([])
+        setLoading(false)
         return
       }
 
-      // Fetch all submission counts in one query
-      const contestIds = contestsData.map(c => c.id)
-      const { data: submissionsData, error: submissionsError } = await supabase
-        .from('submissions')
-        .select('contest_id')
-        .in('contest_id', contestIds)
-
-      // Count submissions per contest
-      const countsMap = new Map<string, number>()
-      if (submissionsData) {
-        submissionsData.forEach((sub: any) => {
-          if (sub.contest_id) {
-            countsMap.set(sub.contest_id, (countsMap.get(sub.contest_id) || 0) + 1)
-          }
-        })
-      }
-
-      // Combine contests with their counts
-      const contestsWithCounts = contestsData.map((contest: any) => ({
+      // Set contests immediately with 0 counts, then fetch counts in background
+      const contestsWithZeroCounts = contestsData.map((contest: any) => ({
         ...contest,
-        submission_count: countsMap.get(contest.id) || 0
+        submission_count: 0
       }))
 
-      setContests(contestsWithCounts)
+      setContests(contestsWithZeroCounts)
+      setLoading(false)
+
+      // Fetch submission counts in background (non-blocking)
+      try {
+        const contestIds = contestsData.map((c: any) => c.id)
+        const { data: submissionsData } = await supabase
+          .from('submissions')
+          .select('contest_id')
+          .in('contest_id', contestIds)
+
+        // Count submissions per contest
+        const countsMap = new Map<string, number>()
+        if (submissionsData) {
+          submissionsData.forEach((sub: any) => {
+            if (sub.contest_id) {
+              countsMap.set(sub.contest_id, (countsMap.get(sub.contest_id) || 0) + 1)
+            }
+          })
+        }
+
+        // Update contests with actual counts
+        const contestsWithCounts = contestsData.map((contest: any) => ({
+          ...contest,
+          submission_count: countsMap.get(contest.id) || 0
+        }))
+
+        setContests(contestsWithCounts)
+      } catch (countError) {
+        console.warn('Error fetching submission counts:', countError)
+        // Contests are already displayed, so we can ignore this error
+      }
     } catch (error: any) {
       console.error('Error fetching contests:', error)
       setContests([])
-    } finally {
       setLoading(false)
     }
   }
