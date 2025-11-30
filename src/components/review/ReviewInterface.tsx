@@ -288,10 +288,10 @@ export default function ReviewInterface({ contestId }: ReviewInterfaceProps) {
               {/* Removed timestamps display */}
 
               {/* Comment if exists */}
-              {currentSubmission.metadata?.comment && (
+              {(currentSubmission.metadata?.comment || currentSubmission.submission_comment) && (
                 <div>
                   <p className="text-slate-300 text-sm">
-                    {currentSubmission.metadata.comment}
+                    {currentSubmission.metadata?.comment || currentSubmission.submission_comment}
                   </p>
                 </div>
               )}
