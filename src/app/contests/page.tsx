@@ -10,8 +10,6 @@ import { Spinner } from '@/components/ui/spinner'
 import { Calendar } from 'lucide-react'
 import SubmissionModal from '@/components/contests/SubmissionModal'
 
-const supabase = createClient()
-
 export default function ContestsPage() {
   const [contests, setContests] = useState<Contest[]>([])
   const [loading, setLoading] = useState(true)
@@ -24,26 +22,62 @@ export default function ContestsPage() {
 
   const fetchContests = async () => {
     try {
-      const { data, error } = await supabase
+      setLoading(true)
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      )
+
+      const queryPromise = supabase
         .from('contests')
         .select('id, title, description, status, display_number, tags, created_at, updated_at, submission_count:submissions(count)')
         .eq('status', 'ACTIVE')
         .order('created_at', { ascending: false })
 
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any
+
       if (error) {
         console.error('Error fetching contests:', error)
         setContests([])
-      } else {
-        const normalized = (data || []).map((contest: any) => ({
-          ...contest,
-          submission_count: Array.isArray(contest.submission_count)
-            ? (contest.submission_count[0]?.count ?? 0)
-            : (contest.submission_count ?? 0)
-        }))
-        setContests(normalized)
+        setLoading(false)
+        return
       }
-    } catch (error) {
-      console.error('Error:', error)
+
+      // Normalize submission_count to a number
+      const normalized = (data || []).map((contest: any) => ({
+        ...contest,
+        submission_count: Array.isArray(contest.submission_count)
+          ? (contest.submission_count[0]?.count ?? 0)
+          : (contest.submission_count ?? 0)
+      }))
+      setContests(normalized)
+    } catch (error: any) {
+      console.error('Error fetching contests:', error)
+      // If it's a timeout or other error, try a simpler query without nested count
+      try {
+        const { data, error: simpleError } = await supabase
+          .from('contests')
+          .select('id, title, description, status, display_number, tags, created_at, updated_at')
+          .eq('status', 'ACTIVE')
+          .order('created_at', { ascending: false })
+          .limit(50)
+
+        if (simpleError) {
+          console.error('Error with simple query:', simpleError)
+          setContests([])
+        } else {
+          // Set submission_count to 0 as fallback
+          const normalized = (data || []).map((contest: any) => ({
+            ...contest,
+            submission_count: 0
+          }))
+          setContests(normalized)
+        }
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError)
+        setContests([])
+      }
     } finally {
       setLoading(false)
     }

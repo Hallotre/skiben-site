@@ -23,13 +23,12 @@ const TwitchIcon = () => (
   </svg>
 )
 
-const supabase = createClient()
-
 export default function ContestsPage() {
   const [contests, setContests] = useState<Contest[]>([])
   const [loadingContests, setLoadingContests] = useState(true)
   const [selectedContest, setSelectedContest] = useState<Contest | null>(null)
   const { user, profile } = useUser()
+  const supabase = createClient()
 
   useEffect(() => {
     fetchContests()
@@ -47,33 +46,74 @@ export default function ContestsPage() {
 
   const fetchContests = async () => {
     try {
-      const { data, error } = await supabase
+      setLoadingContests(true)
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      )
+
+      const queryPromise = supabase
         .from('contests')
         .select('id, title, description, status, display_number, tags, created_at, updated_at, submission_count:submissions(count)')
         .order('created_at', { ascending: false })
 
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any
+
       if (error) {
         console.error('Error fetching contests:', error)
         setContests([])
-      } else {
-        // Normalize submission_count to a number
-        const normalized = (data || []).map((contest: any) => ({
-          ...contest,
-          submission_count: Array.isArray(contest.submission_count)
-            ? (contest.submission_count[0]?.count ?? 0)
-            : (contest.submission_count ?? 0)
-        }))
-
-        // Sort: active contests first, then by most recent
-        const sortedData = normalized.sort((a, b) => {
-          if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
-          if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        })
-        setContests(sortedData)
+        setLoadingContests(false)
+        return
       }
-    } catch (error) {
-      console.error('Error:', error)
+
+      // Normalize submission_count to a number
+      const normalized = (data || []).map((contest: any) => ({
+        ...contest,
+        submission_count: Array.isArray(contest.submission_count)
+          ? (contest.submission_count[0]?.count ?? 0)
+          : (contest.submission_count ?? 0)
+      }))
+
+      // Sort: active contests first, then by most recent
+      const sortedData = normalized.sort((a: Contest, b: Contest) => {
+        if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
+        if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      })
+      setContests(sortedData)
+    } catch (error: any) {
+      console.error('Error fetching contests:', error)
+      // If it's a timeout or other error, try a simpler query without nested count
+      try {
+        const { data, error: simpleError } = await supabase
+          .from('contests')
+          .select('id, title, description, status, display_number, tags, created_at, updated_at')
+          .order('created_at', { ascending: false })
+          .limit(50)
+
+        if (simpleError) {
+          console.error('Error with simple query:', simpleError)
+          setContests([])
+        } else {
+          // Set submission_count to 0 as fallback
+          const normalized = (data || []).map((contest: any) => ({
+            ...contest,
+            submission_count: 0
+          }))
+          
+          // Sort: active contests first, then by most recent
+          const sortedData = normalized.sort((a: Contest, b: Contest) => {
+            if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
+            if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          })
+          setContests(sortedData)
+        }
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError)
+        setContests([])
+      }
     } finally {
       setLoadingContests(false)
     }
