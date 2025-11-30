@@ -23,13 +23,12 @@ const TwitchIcon = () => (
   </svg>
 )
 
-const supabase = createClient()
-
 export default function ContestsPage() {
   const [contests, setContests] = useState<Contest[]>([])
   const [loadingContests, setLoadingContests] = useState(true)
   const [selectedContest, setSelectedContest] = useState<Contest | null>(null)
   const { user, profile } = useUser()
+  const supabase = createClient()
 
   useEffect(() => {
     fetchContests()
@@ -47,30 +46,54 @@ export default function ContestsPage() {
 
   const fetchContests = async () => {
     try {
+      // Fetch contests without the join first to ensure page loads
       const { data, error } = await supabase
         .from('contests')
-        .select('id, title, description, status, display_number, tags, created_at, updated_at, submission_count:submissions(count)')
+        .select('id, title, description, status, display_number, tags, created_at, updated_at')
         .order('created_at', { ascending: false })
 
       if (error) {
         console.error('Error fetching contests:', error)
         setContests([])
       } else {
-        // Normalize submission_count to a number
-        const normalized = (data || []).map((contest: any) => ({
+        // For now, set submission_count to 0 to avoid join issues
+        const contestsData = (data || []).map((contest: any) => ({
           ...contest,
-          submission_count: Array.isArray(contest.submission_count)
-            ? (contest.submission_count[0]?.count ?? 0)
-            : (contest.submission_count?.count ?? contest.submission_count ?? 0)
+          submission_count: 0
         }))
 
         // Sort: active contests first, then by most recent
-        const sortedData = normalized.sort((a, b) => {
+        const sortedData = contestsData.sort((a: any, b: any) => {
           if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
           if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         })
         setContests(sortedData)
+        
+        // Fetch counts separately
+        const fetchCounts = async () => {
+          try {
+            // Fetch all submission counts in one go if possible, or iterate
+            // For safety and simplicity with RLS, let's iterate active contests
+            // A better approach for scale would be a database view or RPC
+            const updatedContests = [...sortedData]
+            
+            await Promise.all(updatedContests.map(async (contest, index) => {
+              const { count } = await supabase
+                .from('submissions')
+                .select('*', { count: 'exact', head: true })
+                .eq('contest_id', contest.id)
+              
+              updatedContests[index].submission_count = count || 0
+            }))
+            
+            setContests([...updatedContests])
+          } catch (err) {
+            console.error('Error fetching submission counts:', err)
+          }
+        }
+
+        fetchCounts()
       }
     } catch (error) {
       console.error('Error:', error)
