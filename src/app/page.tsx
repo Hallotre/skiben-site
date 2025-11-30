@@ -45,52 +45,16 @@ export default function ContestsPage() {
   }
 
   const fetchContests = async () => {
-    let loadingStopped = false
-    
-    // Force stop loading after 3 seconds no matter what
-    const forceStopTimeout = setTimeout(() => {
-      if (!loadingStopped) {
-        console.warn('Force stopping loading after timeout')
-        setLoadingContests(false)
-        setContests([])
-        loadingStopped = true
-      }
-    }, 3000)
-
     try {
       setLoadingContests(true)
       console.log('Starting to fetch contests...')
       
-      // Create a timeout promise that will win the race
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Query timeout after 3 seconds')), 3000)
-      })
-
-      // Create the actual query promise
-      const queryPromise = supabase
+      // Simple query - if it's fast in SQL, it should be fast here
+      const { data: contestsData, error: contestsError } = await supabase
         .from('contests')
         .select('id, title, description, status, display_number, tags, created_at, updated_at')
         .order('created_at', { ascending: false })
         .limit(50)
-
-      // Race them - whichever completes first wins
-      let result: any
-      try {
-        result = await Promise.race([queryPromise, timeoutPromise])
-      } catch (raceError: any) {
-        // Timeout won the race
-        clearTimeout(forceStopTimeout)
-        console.error('Query timed out:', raceError.message)
-        setContests([])
-        setLoadingContests(false)
-        loadingStopped = true
-        return
-      }
-
-      clearTimeout(forceStopTimeout)
-      loadingStopped = true
-
-      const { data: contestsData, error: contestsError } = result
 
       if (contestsError) {
         console.error('Error fetching contests:', contestsError)
@@ -157,13 +121,9 @@ export default function ContestsPage() {
         }
       }, 0)
     } catch (error: any) {
-      clearTimeout(forceStopTimeout)
-      if (!loadingStopped) {
-        console.error('Error fetching contests:', error)
-        setContests([])
-        setLoadingContests(false)
-        loadingStopped = true
-      }
+      console.error('Error fetching contests:', error)
+      setContests([])
+      setLoadingContests(false)
     }
   }
 
