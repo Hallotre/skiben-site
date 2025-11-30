@@ -49,6 +49,10 @@ export default function SubmissionForm({ onSubmit }: SubmissionFormProps) {
     setSuccess('')
 
     try {
+      if (!supabase) {
+        setError('Database connection error')
+        return
+      }
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setError('You must be logged in to submit videos')
@@ -62,6 +66,11 @@ export default function SubmissionForm({ onSubmit }: SubmissionFormProps) {
 
       // Generate a title from the video URL or use a default
       const title = formData.videoUrl || `Video Submission - ${videoInfo.platform}`
+
+      if (!supabase) {
+        setError('Database connection error')
+        return
+      }
 
       const { data, error } = await supabase
         .from('submissions')

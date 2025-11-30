@@ -35,6 +35,7 @@ export default function ContestsPage() {
   }, [])
 
   const handleConnect = async () => {
+    if (!supabase) return
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'twitch',
       options: {
@@ -45,12 +46,21 @@ export default function ContestsPage() {
   }
 
   const fetchContests = async () => {
+    if (!supabase) return
     try {
+      // Create a timeout promise that rejects after 5 seconds
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timed out')), 5000)
+      })
+
       // Fetch contests without the join first to ensure page loads
-      const { data, error } = await supabase
+      const dbPromise = supabase
         .from('contests')
         .select('id, title, description, status, display_number, tags, created_at, updated_at')
         .order('created_at', { ascending: false })
+
+      // Race the DB request against the timeout
+      const { data, error } = await Promise.race([dbPromise, timeoutPromise]) as any
 
       if (error) {
         console.error('Error fetching contests:', error)
@@ -69,35 +79,48 @@ export default function ContestsPage() {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         })
         setContests(sortedData)
+        // Force loading state off immediately
+        setLoadingContests(false)
         
-        // Fetch counts separately
+        // Fetch counts separately in background
         const fetchCounts = async () => {
           try {
-            // Fetch all submission counts in one go if possible, or iterate
-            // For safety and simplicity with RLS, let's iterate active contests
-            // A better approach for scale would be a database view or RPC
+            // Only fetch counts for active or recent contests to optimize
+            // For now just doing all for correctness but could be optimized
             const updatedContests = [...sortedData]
+            let hasUpdates = false
             
             await Promise.all(updatedContests.map(async (contest, index) => {
-              const { count } = await supabase
+              // Add a small timeout for count fetches too so they don't hang indefinitely
+              const countTimeout = new Promise((resolve) => setTimeout(() => resolve({ count: 0 }), 3000))
+              if (!supabase) return
+              const countPromise = supabase
                 .from('submissions')
                 .select('*', { count: 'exact', head: true })
                 .eq('contest_id', contest.id)
               
-              updatedContests[index].submission_count = count || 0
+              const { count } = await Promise.race([countPromise, countTimeout]) as any
+              
+              if (count !== null && count !== undefined) {
+                updatedContests[index].submission_count = count
+                hasUpdates = true
+              }
             }))
             
-            setContests([...updatedContests])
+            if (hasUpdates) {
+              setContests([...updatedContests])
+            }
           } catch (err) {
             console.error('Error fetching submission counts:', err)
           }
         }
 
+        // Execute background fetch without awaiting
         fetchCounts()
       }
     } catch (error) {
       console.error('Error:', error)
-    } finally {
+      // Ensure loading state is turned off even on timeout/error
       setLoadingContests(false)
     }
   }
