@@ -100,34 +100,38 @@ DROP POLICY IF EXISTS "Moderators can view logs" ON public.moderation_logs;
 DROP POLICY IF EXISTS "Moderators can create logs" ON public.moderation_logs;
 
 -- Profiles: Users can read all, insert their own, update only their own
+-- NOTE: Using (select auth.uid()) instead of auth.uid() prevents re-evaluation for each row
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
-CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK ((select auth.uid()) = id);
+CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING ((select auth.uid()) = id);
 
 -- Admin profile management (role changes, bans, deletes)
 DROP POLICY IF EXISTS "Admins can update profiles" ON public.profiles;
 CREATE POLICY "Admins can update profiles" ON public.profiles
-  FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
+  FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) = 'ADMIN');
 
 DROP POLICY IF EXISTS "Admins can delete profiles" ON public.profiles;
 CREATE POLICY "Admins can delete profiles" ON public.profiles
-  FOR DELETE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
+  FOR DELETE USING ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) = 'ADMIN');
 
 -- Submissions: Everyone can read, authenticated users can create
+-- NOTE: Using (select auth.uid()) instead of auth.uid() prevents re-evaluation for each row
 CREATE POLICY "Submissions are viewable by everyone" ON public.submissions FOR SELECT USING (true);
-CREATE POLICY "Authenticated users can create submissions" ON public.submissions FOR INSERT WITH CHECK (auth.uid() = submitter_id AND NOT (SELECT is_banned FROM public.profiles WHERE id = auth.uid()));
-CREATE POLICY "Moderators can update submissions" ON public.submissions FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('MODERATOR', 'STREAMER', 'ADMIN'));
-CREATE POLICY "Moderators can delete submissions" ON public.submissions FOR DELETE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('MODERATOR', 'STREAMER', 'ADMIN'));
+CREATE POLICY "Authenticated users can create submissions" ON public.submissions FOR INSERT WITH CHECK ((select auth.uid()) = submitter_id AND NOT (SELECT is_banned FROM public.profiles WHERE id = (select auth.uid())));
+CREATE POLICY "Moderators can update submissions" ON public.submissions FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) IN ('MODERATOR', 'STREAMER', 'ADMIN'));
+CREATE POLICY "Moderators can delete submissions" ON public.submissions FOR DELETE USING ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) IN ('MODERATOR', 'STREAMER', 'ADMIN'));
 
 -- Contests: Everyone can read and create (for streamers to manage contests)
+-- NOTE: Using (select auth.uid()) instead of auth.uid() prevents re-evaluation for each row
 CREATE POLICY "Contests are viewable by everyone" ON public.contests FOR SELECT USING (true);
-CREATE POLICY "Admins can create contests" ON public.contests FOR INSERT WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('ADMIN', 'STREAMER'));
-CREATE POLICY "Admins can update contests" ON public.contests FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('ADMIN', 'STREAMER'));
-CREATE POLICY "Admins can delete contests" ON public.contests FOR DELETE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('ADMIN', 'STREAMER'));
+CREATE POLICY "Admins can create contests" ON public.contests FOR INSERT WITH CHECK ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) IN ('ADMIN', 'STREAMER'));
+CREATE POLICY "Admins can update contests" ON public.contests FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) IN ('ADMIN', 'STREAMER'));
+CREATE POLICY "Admins can delete contests" ON public.contests FOR DELETE USING ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) IN ('ADMIN', 'STREAMER'));
 
 -- Moderation logs: Viewable by moderators, created by moderators
-CREATE POLICY "Moderators can view logs" ON public.moderation_logs FOR SELECT USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('MODERATOR', 'STREAMER', 'ADMIN'));
-CREATE POLICY "Moderators can create logs" ON public.moderation_logs FOR INSERT WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('MODERATOR', 'STREAMER', 'ADMIN'));
+-- NOTE: Using (select auth.uid()) instead of auth.uid() prevents re-evaluation for each row
+CREATE POLICY "Moderators can view logs" ON public.moderation_logs FOR SELECT USING ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) IN ('MODERATOR', 'STREAMER', 'ADMIN'));
+CREATE POLICY "Moderators can create logs" ON public.moderation_logs FOR INSERT WITH CHECK ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) IN ('MODERATOR', 'STREAMER', 'ADMIN'));
 -- Contest tags lookup table
 CREATE TABLE IF NOT EXISTS public.contest_tags (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -143,10 +147,11 @@ DROP POLICY IF EXISTS "Admins can insert tags" ON public.contest_tags;
 DROP POLICY IF EXISTS "Admins can update tags" ON public.contest_tags;
 DROP POLICY IF EXISTS "Admins can delete tags" ON public.contest_tags;
 -- Policies
+-- NOTE: Using (select auth.uid()) instead of auth.uid() prevents re-evaluation for each row
 CREATE POLICY "Contest tags are viewable by everyone" ON public.contest_tags FOR SELECT USING (true);
-CREATE POLICY "Admins can insert tags" ON public.contest_tags FOR INSERT WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
-CREATE POLICY "Admins can update tags" ON public.contest_tags FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
-CREATE POLICY "Admins can delete tags" ON public.contest_tags FOR DELETE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
+CREATE POLICY "Admins can insert tags" ON public.contest_tags FOR INSERT WITH CHECK ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) = 'ADMIN');
+CREATE POLICY "Admins can update tags" ON public.contest_tags FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) = 'ADMIN');
+CREATE POLICY "Admins can delete tags" ON public.contest_tags FOR DELETE USING ((SELECT role FROM public.profiles WHERE id = (select auth.uid())) = 'ADMIN');
 ```
 
 ### Step 3: Create Your First Admin User (Important!)

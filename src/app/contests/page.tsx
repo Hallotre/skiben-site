@@ -21,19 +21,28 @@ export default function ContestsPage() {
   }, [])
 
   const fetchContests = async () => {
-    // Set a timeout to ensure loading always stops
-    const timeoutId = setTimeout(() => {
-      console.error('Fetch contests timeout - forcing loading to stop')
-      setLoading(false)
-      setContests([])
-    }, 5000) // 5 second timeout
+    let loadingStopped = false
+    
+    // Force stop loading after 3 seconds no matter what
+    const forceStopTimeout = setTimeout(() => {
+      if (!loadingStopped) {
+        console.warn('Force stopping loading after timeout')
+        setLoading(false)
+        setContests([])
+        loadingStopped = true
+      }
+    }, 3000)
 
     try {
       setLoading(true)
-      
       console.log('Starting to fetch contests...')
       
-      // Fetch contests without nested query to avoid hanging
+      // Create a timeout promise that will win the race
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Query timeout after 3 seconds')), 3000)
+      })
+
+      // Create the actual query promise
       const queryPromise = supabase
         .from('contests')
         .select('id, title, description, status, display_number, tags, created_at, updated_at')
@@ -41,13 +50,22 @@ export default function ContestsPage() {
         .order('created_at', { ascending: false })
         .limit(50)
 
-      // Race the query against a timeout
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Query timeout')), 5000)
-      )
+      // Race them - whichever completes first wins
+      let result: any
+      try {
+        result = await Promise.race([queryPromise, timeoutPromise])
+      } catch (raceError: any) {
+        // Timeout won the race
+        clearTimeout(forceStopTimeout)
+        console.error('Query timed out:', raceError.message)
+        setContests([])
+        setLoading(false)
+        loadingStopped = true
+        return
+      }
 
-      const result = await Promise.race([queryPromise, timeoutPromise]) as any
-      clearTimeout(timeoutId)
+      clearTimeout(forceStopTimeout)
+      loadingStopped = true
 
       const { data: contestsData, error: contestsError } = result
 
@@ -75,7 +93,7 @@ export default function ContestsPage() {
       setContests(contestsWithZeroCounts)
       setLoading(false)
 
-      // Fetch submission counts in background (non-blocking, no await)
+      // Fetch submission counts in background (non-blocking)
       setTimeout(async () => {
         try {
           const contestIds = contestsData.map((c: any) => c.id)
@@ -104,10 +122,13 @@ export default function ContestsPage() {
         }
       }, 0)
     } catch (error: any) {
-      clearTimeout(timeoutId)
-      console.error('Error fetching contests:', error)
-      setContests([])
-      setLoading(false)
+      clearTimeout(forceStopTimeout)
+      if (!loadingStopped) {
+        console.error('Error fetching contests:', error)
+        setContests([])
+        setLoading(false)
+        loadingStopped = true
+      }
     }
   }
 

@@ -46,3 +46,4 @@ next-env.d.ts
 
 # OS
 Thumbs.db
+fix_rls_performance.sql
