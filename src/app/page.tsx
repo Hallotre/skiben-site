@@ -48,35 +48,49 @@ export default function ContestsPage() {
     try {
       setLoadingContests(true)
       
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 10000)
-      )
-
-      const queryPromise = supabase
+      // Fetch contests without nested query to avoid hanging
+      const { data: contestsData, error: contestsError } = await supabase
         .from('contests')
-        .select('id, title, description, status, display_number, tags, created_at, updated_at, submission_count:submissions(count)')
+        .select('id, title, description, status, display_number, tags, created_at, updated_at')
         .order('created_at', { ascending: false })
+        .limit(50)
 
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any
-
-      if (error) {
-        console.error('Error fetching contests:', error)
+      if (contestsError) {
+        console.error('Error fetching contests:', contestsError)
         setContests([])
-        setLoadingContests(false)
         return
       }
 
-      // Normalize submission_count to a number
-      const normalized = (data || []).map((contest: any) => ({
+      if (!contestsData || contestsData.length === 0) {
+        setContests([])
+        return
+      }
+
+      // Fetch all submission counts in one query
+      const contestIds = contestsData.map(c => c.id)
+      const { data: submissionsData, error: submissionsError } = await supabase
+        .from('submissions')
+        .select('contest_id')
+        .in('contest_id', contestIds)
+
+      // Count submissions per contest
+      const countsMap = new Map<string, number>()
+      if (submissionsData) {
+        submissionsData.forEach((sub: any) => {
+          if (sub.contest_id) {
+            countsMap.set(sub.contest_id, (countsMap.get(sub.contest_id) || 0) + 1)
+          }
+        })
+      }
+
+      // Combine contests with their counts
+      const contestsWithCounts = contestsData.map((contest: any) => ({
         ...contest,
-        submission_count: Array.isArray(contest.submission_count)
-          ? (contest.submission_count[0]?.count ?? 0)
-          : (contest.submission_count ?? 0)
+        submission_count: countsMap.get(contest.id) || 0
       }))
 
       // Sort: active contests first, then by most recent
-      const sortedData = normalized.sort((a: Contest, b: Contest) => {
+      const sortedData = contestsWithCounts.sort((a: Contest, b: Contest) => {
         if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
         if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -84,36 +98,7 @@ export default function ContestsPage() {
       setContests(sortedData)
     } catch (error: any) {
       console.error('Error fetching contests:', error)
-      // If it's a timeout or other error, try a simpler query without nested count
-      try {
-        const { data, error: simpleError } = await supabase
-          .from('contests')
-          .select('id, title, description, status, display_number, tags, created_at, updated_at')
-          .order('created_at', { ascending: false })
-          .limit(50)
-
-        if (simpleError) {
-          console.error('Error with simple query:', simpleError)
-          setContests([])
-        } else {
-          // Set submission_count to 0 as fallback
-          const normalized = (data || []).map((contest: any) => ({
-            ...contest,
-            submission_count: 0
-          }))
-          
-          // Sort: active contests first, then by most recent
-          const sortedData = normalized.sort((a: Contest, b: Contest) => {
-            if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
-            if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          })
-          setContests(sortedData)
-        }
-      } catch (fallbackError) {
-        console.error('Fallback query also failed:', fallbackError)
-        setContests([])
-      }
+      setContests([])
     } finally {
       setLoadingContests(false)
     }
