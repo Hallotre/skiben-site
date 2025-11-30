@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Contest, Profile } from '@/types'
+import { Contest } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Calendar, Eye } from 'lucide-react'
 import SubmissionModal from '@/components/contests/SubmissionModal'
 import Link from 'next/link'
+import { useUser } from '@/providers/UserProvider'
 
 const TwitchIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -26,48 +27,13 @@ const supabase = createClient()
 
 export default function ContestsPage() {
   const [contests, setContests] = useState<Contest[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loadingContests, setLoadingContests] = useState(true)
   const [selectedContest, setSelectedContest] = useState<Contest | null>(null)
-  const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const { user, profile } = useUser()
 
   useEffect(() => {
     fetchContests()
-    getUser()
   }, [])
-
-  const getUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    setUser(user)
-    
-    // Fetch user profile if user exists
-    if (user) {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-      setProfile(profileData)
-    }
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
-      
-      // Fetch profile when auth state changes
-      if (session?.user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-        setProfile(profileData)
-      } else {
-        setProfile(null)
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }
 
   const handleConnect = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -109,7 +75,7 @@ export default function ContestsPage() {
     } catch (error) {
       console.error('Error:', error)
     } finally {
-      setLoading(false)
+      setLoadingContests(false)
     }
   }
 
@@ -117,7 +83,7 @@ export default function ContestsPage() {
     fetchContests()
   }
 
-  if (loading) {
+  if (loadingContests) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Spinner size="lg" />

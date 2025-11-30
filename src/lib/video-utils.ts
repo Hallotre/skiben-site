@@ -14,6 +14,13 @@ const ALLOWED_TIKTOK_DOMAINS = [
   'vm.tiktok.com'
 ]
 
+const ALLOWED_TWITCH_DOMAINS = [
+  'twitch.tv',
+  'www.twitch.tv',
+  'clips.twitch.tv',
+  'm.twitch.tv'
+]
+
 function isValidDomain(hostname: string, allowedDomains: string[]): boolean {
   const lowerHostname = hostname.toLowerCase()
   return allowedDomains.some(domain => 
@@ -55,6 +62,28 @@ export function extractVideoId(url: string): { platform: Platform; videoId: stri
       const pathMatch = urlObj.pathname.match(/\/video\/(\d+)/)
       if (pathMatch) {
         return { platform: 'TIKTOK', videoId: pathMatch[1] }
+      }
+    }
+
+    // Twitch patterns
+    if (isValidDomain(hostname, ALLOWED_TWITCH_DOMAINS)) {
+      // https://clips.twitch.tv/SlugHere
+      if (hostname === 'clips.twitch.tv') {
+        const slug = urlObj.pathname.slice(1)
+        if (slug && slug.trim() !== '') {
+          return { platform: 'TWITCH', videoId: slug }
+        }
+      }
+      
+      // https://www.twitch.tv/channel/clip/SlugHere
+      if (urlObj.pathname.includes('/clip/')) {
+        const parts = urlObj.pathname.split('/clip/')
+        if (parts.length > 1) {
+          const slug = parts[1].split('/')[0] // Handle trailing slash or params
+          if (slug && slug.trim() !== '') {
+            return { platform: 'TWITCH', videoId: slug }
+          }
+        }
       }
     }
     
@@ -122,6 +151,11 @@ export function getEmbedUrl(videoId: string, platform: Platform): string {
     return `https://www.youtube.com/embed/${videoId}`
   } else if (platform === 'TIKTOK') {
     return `https://www.tiktok.com/embed/${videoId}`
+  } else if (platform === 'TWITCH') {
+    // Parent parameter is required for Twitch embeds.
+    // Using current window location would be ideal but this runs on server too?
+    // For now we construct the base URL, but the component will likely need to append parent
+    return `https://clips.twitch.tv/embed?clip=${videoId}`
   }
   return ''
 }

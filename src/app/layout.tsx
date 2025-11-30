@@ -2,6 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import AppBar from '@/components/layout/AppBar'
+import UserProvider from '@/providers/UserProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -31,8 +32,10 @@ export default function RootLayout({
         }}
         suppressHydrationWarning
       >
-        <AppBar hideOnModeration />
-        {children}
+        <UserProvider>
+          <AppBar hideOnModeration />
+          {children}
+        </UserProvider>
       </body>
     </html>
   )

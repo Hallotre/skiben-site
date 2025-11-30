@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import VideoPlayer from '@/components/video/VideoPlayer'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { usePermissions } from '@/lib/permissions-client'
+import { useUser } from '@/providers/UserProvider'
 import { Button as UIButton } from '@/components/ui/button'
 import { Trophy, CheckCircle, X, RotateCcw, Eye } from 'lucide-react'
 import ModerationActions from '@/components/moderation/ModerationActions'
@@ -25,34 +25,15 @@ export default function ModerationDashboard({ selectedContest, allContests }: Mo
   const [loading, setLoading] = useState(true)
   const [currentStatus, setCurrentStatus] = useState('UNAPPROVED')
   const supabase = createClient()
-  const { isModerator } = usePermissions()
-  const [canCopyIds, setCanCopyIds] = useState(false)
+  const { checkRole } = useUser()
+  
+  const canCopyIds = checkRole(['MODERATOR', 'STREAMER', 'ADMIN'])
 
   useEffect(() => {
     let isMounted = true
     
     const loadData = async () => {
       await fetchSubmissions()
-      
-      // Check copy permission (mods/streamers/admins) with timeout
-      if (isMounted) {
-        try {
-          const canCopy = await Promise.race([
-            isModerator(),
-            new Promise<boolean>((resolve) => 
-              setTimeout(() => resolve(false), 5000)
-            )
-          ])
-          if (isMounted) {
-            setCanCopyIds(canCopy)
-          }
-        } catch (error) {
-          console.error('Error checking moderator permission:', error)
-          if (isMounted) {
-            setCanCopyIds(false)
-          }
-        }
-      }
     }
     
     loadData()

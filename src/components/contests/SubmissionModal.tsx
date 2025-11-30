@@ -71,7 +71,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
       const { extractVideoId, validateVideoUrl } = await import('@/lib/video-utils')
       
       if (!validateVideoUrl(formData.link)) {
-        setError('Invalid video URL. Please use a valid YouTube, YouTube Shorts, or TikTok URL.')
+        setError('Invalid video URL. Please use a valid YouTube, YouTube Shorts, TikTok, or Twitch Clip URL.')
         setLoading(false)
         return
       }
@@ -191,7 +191,8 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
                     const url = e.target.value
                     setFormData({ ...formData, link: url })
                   }}
-                  placeholder="https://youtube.com/watch?v=... or https://youtube.com/shorts/..."
+                  placeholder="YOUTUBE, TIKTOK, TWITCH"
+                  autoComplete="off"
                   className="bg-[rgb(18,18,18)] border-white/20 text-white rounded-md w-full hover:border-white/30 focus:border-white/50"
                 />
               </div>

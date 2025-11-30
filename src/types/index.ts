@@ -1,5 +1,5 @@
 export type UserRole = 'VIEWER' | 'MODERATOR' | 'STREAMER' | 'ADMIN'
-export type Platform = 'YOUTUBE' | 'TIKTOK'
+export type Platform = 'YOUTUBE' | 'TIKTOK' | 'TWITCH'
 export type SubmissionStatus = 'UNAPPROVED' | 'APPROVED' | 'DENIED' | 'WINNER'
 export type ModerationAction = 'APPROVE' | 'DENY' | 'MARK_WINNER' | 'UNAPPROVE' | 'REMOVE' | 'BAN_USER'
 

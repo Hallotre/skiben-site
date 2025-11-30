@@ -2,6 +2,7 @@
 
 import YouTubeEmbed from './YouTubeEmbed'
 import TikTokEmbed from './TikTokEmbed'
+import TwitchEmbed from './TwitchEmbed'
 import { Platform } from '@/types'
 
 interface VideoPlayerProps {
@@ -35,6 +36,17 @@ export default function VideoPlayer({
       <TikTokEmbed 
         videoId={videoId}
         title={title}
+        className={className}
+      />
+    )
+  }
+
+  if (platform === 'TWITCH') {
+    return (
+      <TwitchEmbed 
+        videoId={videoId}
+        title={title}
+        autoplay={autoplay}
         className={className}
       />
     )

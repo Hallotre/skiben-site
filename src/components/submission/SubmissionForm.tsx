@@ -27,7 +27,7 @@ export default function SubmissionForm({ onSubmit }: SubmissionFormProps) {
     
     if (url) {
       if (!validateVideoUrl(url)) {
-        setError('Please enter a valid YouTube, YouTube Shorts, or TikTok URL')
+        setError('Please enter a valid YouTube, YouTube Shorts, TikTok, or Twitch Clip URL')
         return
       }
       
@@ -111,7 +111,8 @@ export default function SubmissionForm({ onSubmit }: SubmissionFormProps) {
               id="videoUrl"
               value={formData.videoUrl}
               onChange={(e) => handleUrlChange(e.target.value)}
-              placeholder="https://youtube.com/watch?v=... or https://youtube.com/shorts/... or https://tiktok.com/@user/video/..."
+              placeholder="YOUTUBE, TIKTOK, TWITCH"
+              autoComplete="off"
               className="bg-dark-600 border border-dark-500 text-white rounded-lg px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               required
             />

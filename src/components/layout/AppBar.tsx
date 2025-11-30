@@ -1,59 +1,26 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/utils/supabase/client'
-import { Profile } from '@/types'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Shield } from 'lucide-react'
+import { useUser } from '@/providers/UserProvider'
+import LoginButton from '@/components/auth/LoginButton'
 
 interface AppBarProps {
   hideOnModeration?: boolean
 }
 
 export default function AppBar({ hideOnModeration = false }: AppBarProps) {
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [mounted, setMounted] = useState(false)
+  const { profile, loading } = useUser()
   const pathname = usePathname()
-  const supabase = createClient()
-
-  useEffect(() => {
-    setMounted(true)
-    const getUserProfile = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single()
-          setProfile(profileData)
-        }
-      } catch (error: any) {
-        console.error('Error fetching profile:', error?.message || 'Unknown error')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    getUserProfile()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      getUserProfile()
-    })
-
-    return () => subscription.unsubscribe()
-  }, [supabase])
   
-  // Hide navbar on moderation pages (after all hooks are called)
+  // Hide navbar on moderation pages
   if (hideOnModeration && pathname?.startsWith('/moderation')) {
     return null
   }
 
-  const isModerator = profile?.role === 'MODERATOR' || profile?.role === 'ADMIN'
+  const isModerator = profile?.role === 'MODERATOR' || profile?.role === 'STREAMER' || profile?.role === 'ADMIN'
 
   // Always render the same structure, just conditionally show user content
   return (
@@ -110,7 +77,7 @@ export default function AppBar({ hideOnModeration = false }: AppBarProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          {mounted && !loading && isModerator && (
+          {!loading && isModerator && (
             <Button
               asChild
               size="sm"
@@ -122,9 +89,9 @@ export default function AppBar({ hideOnModeration = false }: AppBarProps) {
               </Link>
             </Button>
           )}
+          {!loading && <LoginButton />}
         </div>
       </div>
     </header>
   )
 }
-
