@@ -56,10 +56,6 @@ export default function Navigation() {
 
           {/* Navigation */}
           <nav className="flex items-center space-x-8">
-            <a href="/contests" className="text-slate-400 hover:text-white transition-colors relative group">
-              Contests
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500 group-hover:w-full transition-all duration-300" />
-            </a>
             {!loading && isModerator && (
               <a
                 href="/moderation"

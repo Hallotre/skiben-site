@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Contest } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -29,27 +29,6 @@ export default function ContestsPage() {
   const [selectedContest, setSelectedContest] = useState<Contest | null>(null)
   const { user, profile } = useUser()
   const supabase = useMemo(() => createClient(), [])
-  const abortControllerRef = useRef<AbortController | null>(null)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSuccessfulFetchRef = useRef<Contest[] | null>(null)
-
-  useEffect(() => {
-    fetchContests().catch((error) => {
-      console.error('fetchContests error:', error)
-      setLoadingContests(false)
-      setContests([])
-    })
-
-    // Cleanup on unmount
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-    }
-  }, [])
 
   const handleConnect = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -61,133 +40,24 @@ export default function ContestsPage() {
     if (error) console.error('Error signing in:', error)
   }
 
-  const fetchContests = async (retryCount = 0) => {
-    // Prevent multiple simultaneous calls
-    if (timeoutRef.current) {
-      console.log('Fetch already in progress, skipping...')
-      return
-    }
+  const fetchContests = useCallback(async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 8000)
 
     try {
       setLoadingContests(true)
-      
-      // Create a fresh Supabase client for each request to avoid state issues
-      const freshSupabase = createClient()
-      
-      // Log before query
-      console.log('Executing Supabase query...', { retryCount })
-      const queryStart = performance.now()
 
-      // Set a timeout to force stop loading after 5 seconds
-      let queryCompleted = false
-      timeoutRef.current = setTimeout(() => {
-        if (!queryCompleted) {
-          console.warn('Query timeout - forcing loading to stop')
-          queryCompleted = true
-          setLoadingContests(false)
-          // Retry once if we haven't retried yet
-          if (retryCount === 0) {
-            console.log('Retrying fetchContests...')
-            timeoutRef.current = null
-            setTimeout(() => fetchContests(1), 1000)
-          } else {
-            console.error('Retry also failed, showing cached data if available')
-            timeoutRef.current = null
-            // Show last successful fetch if available, otherwise empty
-            if (lastSuccessfulFetchRef.current && lastSuccessfulFetchRef.current.length > 0) {
-              console.log('Showing cached contests from last successful fetch')
-              setContests(lastSuccessfulFetchRef.current)
-            } else {
-              setContests([])
-            }
-          }
-        }
-      }, 5000)
+      const response = await fetch('/api/contests', {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller.signal,
+      })
 
-      // Simple query - let it complete naturally
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('Supabase configuration missing')
+      if (!response.ok) {
+        throw new Error(`Failed to load contests (${response.status})`)
       }
-      
-      console.log('Making Supabase request...')
-      
-      // Try the query with a wrapper that will timeout if it hangs
-      let result: any
-      try {
-        // Create a promise that will reject after 4 seconds if query doesn't complete
-        const queryWithTimeout = Promise.race([
-          freshSupabase
-            .from('contests')
-            .select('id, title, description, status, display_number, tags, created_at, updated_at')
-            .order('created_at', { ascending: false })
-            .limit(50),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Query timeout')), 4000)
-          )
-        ])
-        
-        result = await queryWithTimeout
-      } catch (timeoutError: any) {
-        // If timeout, try direct fetch as fallback
-        if (timeoutError.message === 'Query timeout') {
-          console.warn('Supabase client timed out, trying direct fetch...')
-          try {
-            const response = await fetch(
-              `${supabaseUrl}/rest/v1/contests?select=id,title,description,status,display_number,tags,created_at,updated_at&order=created_at.desc&limit=50`,
-              {
-                headers: {
-                  'apikey': supabaseKey,
-                  'Authorization': `Bearer ${supabaseKey}`,
-                  'Content-Type': 'application/json',
-                }
-              }
-            )
-            
-            if (!response.ok) {
-              throw new Error(`Fetch failed: ${response.status}`)
-            }
-            
-            const data = await response.json()
-            result = { data, error: null }
-            console.log('Direct fetch succeeded!')
-          } catch (fetchError) {
-            console.error('Direct fetch also failed:', fetchError)
-            throw timeoutError // Throw original timeout error
-          }
-        } else {
-          throw timeoutError
-        }
-      }
-      
-      queryCompleted = true
-      
-      // Clear timeout since we got a response
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
-      }
-      
-      const queryEnd = performance.now()
-      console.log(`Query completed in ${(queryEnd - queryStart).toFixed(2)}ms`)
-      
-      const contestsData = result.data
-      const contestsError = result.error
 
-      if (contestsError) {
-        console.error('Error fetching contests:', contestsError)
-        // Retry once on error
-        if (retryCount === 0) {
-          console.log('Retrying after error...')
-          setTimeout(() => fetchContests(1), 1000)
-          return
-        }
-        setContests([])
-        setLoadingContests(false)
-        return
-      }
+      const { contests: contestsData = [] }: { contests: Contest[] } = await response.json()
 
       if (!contestsData || contestsData.length === 0) {
         setContests([])
@@ -195,80 +65,35 @@ export default function ContestsPage() {
         return
       }
 
-      // Set contests immediately with 0 counts
-      const contestsWithZeroCounts = contestsData.map((contest: any) => ({
-        ...contest,
-        submission_count: 0
-      }))
+      const sortContests = (items: Contest[]) =>
+        [...items].sort((a, b) => {
+          if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
+          if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        })
 
-      // Sort: active contests first, then by most recent
-      const sortedData = contestsWithZeroCounts.sort((a: Contest, b: Contest) => {
-        if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
-        if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      })
-      
-      setContests(sortedData)
-      lastSuccessfulFetchRef.current = sortedData // Cache successful fetch
+      setContests(sortContests(contestsData))
       setLoadingContests(false)
-
-      // Fetch submission counts in background (non-blocking)
-      setTimeout(async () => {
-        try {
-          const contestIds = contestsData.map((c: any) => c.id)
-          const { data: submissionsData } = await supabase
-            .from('submissions')
-            .select('contest_id')
-            .in('contest_id', contestIds)
-
-          const countsMap = new Map<string, number>()
-          if (submissionsData) {
-            submissionsData.forEach((sub: any) => {
-              if (sub.contest_id) {
-                countsMap.set(sub.contest_id, (countsMap.get(sub.contest_id) || 0) + 1)
-              }
-            })
-          }
-
-          const contestsWithCounts = contestsData.map((contest: any) => ({
-            ...contest,
-            submission_count: countsMap.get(contest.id) || 0
-          }))
-
-          const sortedDataWithCounts = contestsWithCounts.sort((a: Contest, b: Contest) => {
-            if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
-            if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          })
-          setContests(sortedDataWithCounts)
-        } catch (countError) {
-          console.warn('Error fetching submission counts:', countError)
-        }
-      }, 0)
-    } catch (error: any) {
-      // Clear timeout on error
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
+    } catch (error) {
+      if ((error as DOMException).name === 'AbortError') {
+        console.warn('Contests request timed out')
+      } else {
+        console.error('Error fetching contests:', error)
       }
-      
-      console.error('Error fetching contests:', error)
-      
-      // Retry once if we haven't retried yet and it's not an abort error
-      if (retryCount === 0 && error.name !== 'AbortError') {
-        console.log('Retrying after catch error...')
-        setTimeout(() => fetchContests(1), 1000)
-        return
-      }
-      
       setContests([])
       setLoadingContests(false)
+    } finally {
+      clearTimeout(timeoutId)
     }
-  }
+  }, [])
 
   const handleSubmitSuccess = () => {
     fetchContests()
   }
+
+  useEffect(() => {
+    fetchContests()
+  }, [fetchContests])
 
   if (loadingContests) {
     return (
