@@ -26,7 +26,7 @@ const nextConfig = {
           },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()'
+            value: 'camera=(), microphone=(), geolocation=(), encrypted-media=*, autoplay=(self "https://clips.twitch.tv" "https://player.twitch.tv"), fullscreen=*'
           },
           {
             key: 'Content-Security-Policy',

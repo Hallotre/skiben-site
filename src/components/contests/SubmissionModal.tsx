@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import { extractVideoId, validateVideoUrl } from '@/lib/video-utils'
 import { Contest } from '@/types'
+import type { User } from '@supabase/supabase-js'
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -16,9 +18,10 @@ interface SubmissionModalProps {
   contest: Contest
   onClose: () => void
   onSubmitSuccess: () => void
+  user: User | null
 }
 
-export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: SubmissionModalProps) {
+export default function SubmissionModal({ contest, onClose, onSubmitSuccess, user }: SubmissionModalProps) {
   const [formData, setFormData] = useState({
     title: '',
     link: '',
@@ -27,7 +30,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   // Reset form state when modal opens or contest changes
   useEffect(() => {
@@ -60,16 +63,12 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess }: S
     setError('')
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setError('You must be logged in to submit')
         setLoading(false)
         return
       }
 
-      // SECURITY: Use validated video extraction
-      const { extractVideoId, validateVideoUrl } = await import('@/lib/video-utils')
-      
       if (!validateVideoUrl(formData.link)) {
         setError('Invalid video URL. Please use a valid YouTube, YouTube Shorts, TikTok, or Twitch Clip URL.')
         setLoading(false)

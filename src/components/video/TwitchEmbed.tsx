@@ -37,7 +37,9 @@ export default function TwitchEmbed({
         title={title}
         width="100%"
         height="100%"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
         allowFullScreen
+        referrerPolicy="origin"
         className="absolute top-0 left-0 w-full h-full"
       />
     </div>

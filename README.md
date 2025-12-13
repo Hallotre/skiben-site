@@ -42,7 +42,7 @@ CREATE TABLE public.profiles (
 CREATE TABLE public.submissions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
-  platform TEXT NOT NULL CHECK (platform IN ('YOUTUBE', 'TIKTOK')),
+  platform TEXT NOT NULL CHECK (platform IN ('YOUTUBE', 'TIKTOK', 'TWITCH')),
   video_url TEXT NOT NULL,
   video_id TEXT NOT NULL,
   status TEXT DEFAULT 'UNAPPROVED' CHECK (status IN ('UNAPPROVED', 'APPROVED', 'DENIED', 'WINNER')),
@@ -58,6 +58,12 @@ CREATE TABLE public.submissions (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE IF EXISTS public.submissions
+  DROP CONSTRAINT IF EXISTS submissions_platform_check;
+ALTER TABLE IF EXISTS public.submissions
+  ADD CONSTRAINT submissions_platform_check
+  CHECK (platform IN ('YOUTUBE', 'TIKTOK', 'TWITCH'));
 
 -- Contests table
 CREATE TABLE public.contests (
