@@ -64,7 +64,7 @@ export default function AppBar({ hideOnModeration = false }: AppBarProps) {
                 href="https://www.tiktok.com/@realskiben"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="TikTok"
+                aria-label="TikTok @realskiben"
                 className="flex items-center justify-center"
               >
                 {/* TikTok filled logo (single-color) */}
