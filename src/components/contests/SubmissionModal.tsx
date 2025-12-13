@@ -62,7 +62,7 @@ export default function SubmissionModal({ contest, onClose, onSubmitSuccess, use
     setLoading(true)
     setError('')
 
-    try {
+    try { 
       if (!user) {
         setError('You must be logged in to submit')
         setLoading(false)
