@@ -63,34 +63,37 @@ export default function UserProvider({
   useEffect(() => {
     let mounted = true
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return
 
       console.log('Auth state change:', event, session?.user?.email)
 
+      // Update user state synchronously
       if (session?.user) {
-        // Set user immediately from session
         setUser(session.user)
-        
-        // Fetch profile and then stop loading
-        try {
-          const profileData = await fetchProfile(session.user.id)
-          if (mounted) {
-            setProfile(profileData)
-            console.log('Profile loaded:', profileData?.role)
-          }
-        } catch (err) {
-          console.error('Profile fetch failed:', err)
-        }
       } else {
         setUser(null)
         setProfile(null)
       }
 
-      // Stop loading after processing (whether successful or not)
-      if (mounted && !initialSessionHandled.current) {
+      // Stop loading immediately (don't wait for profile)
+      if (!initialSessionHandled.current) {
         initialSessionHandled.current = true
         setLoading(false)
+      }
+
+      // Fetch profile in the background (non-blocking)
+      if (session?.user) {
+        fetchProfile(session.user.id)
+          .then(profileData => {
+            if (mounted) {
+              setProfile(profileData)
+              console.log('Profile loaded:', profileData?.role)
+            }
+          })
+          .catch(err => {
+            console.error('Profile fetch failed:', err)
+          })
       }
     })
 
