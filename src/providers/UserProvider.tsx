@@ -66,7 +66,6 @@ export default function UserProvider({
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return
 
-      console.log('Auth state change:', event, session?.user?.email)
 
       // Update user state synchronously
       if (session?.user) {
@@ -88,7 +87,6 @@ export default function UserProvider({
           .then(profileData => {
             if (mounted) {
               setProfile(profileData)
-              console.log('Profile loaded:', profileData?.role)
             }
           })
           .catch(err => {
@@ -100,7 +98,6 @@ export default function UserProvider({
     // Fallback timeout - stop loading even if no auth event fires
     const timeout = setTimeout(() => {
       if (mounted && !initialSessionHandled.current) {
-        console.log('Auth timeout - stopping loading')
         initialSessionHandled.current = true
         setLoading(false)
       }
