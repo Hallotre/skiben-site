@@ -4,7 +4,7 @@ import { createClient as createServerSupabaseClient } from '@/utils/supabase/ser
 
 export async function GET() {
   try {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const supabase = createServerSupabaseClient(cookieStore)
 
     const { data: contestsData, error: contestsError } = await supabase
