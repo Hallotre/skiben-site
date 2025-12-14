@@ -63,39 +63,45 @@ export default function UserProvider({
   useEffect(() => {
     let mounted = true
 
-    // Use onAuthStateChange as the primary source of truth
-    // It fires INITIAL_SESSION immediately with the session from cookies
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
 
       console.log('Auth state change:', event, session?.user?.email)
 
-      // Stop loading IMMEDIATELY on first auth event (before any async operations)
-      if (!initialSessionHandled.current) {
-        initialSessionHandled.current = true
-        setLoading(false)
-      }
-
       if (session?.user) {
+        // Set user immediately from session
         setUser(session.user)
-        // Fetch profile on any session event (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED)
-        const profileData = await fetchProfile(session.user.id)
-        if (mounted) {
-          setProfile(profileData)
+        
+        // Fetch profile and then stop loading
+        try {
+          const profileData = await fetchProfile(session.user.id)
+          if (mounted) {
+            setProfile(profileData)
+            console.log('Profile loaded:', profileData?.role)
+          }
+        } catch (err) {
+          console.error('Profile fetch failed:', err)
         }
       } else {
         setUser(null)
         setProfile(null)
       }
+
+      // Stop loading after processing (whether successful or not)
+      if (mounted && !initialSessionHandled.current) {
+        initialSessionHandled.current = true
+        setLoading(false)
+      }
     })
 
-    // Fallback: if INITIAL_SESSION doesn't fire within 2 seconds, stop loading
+    // Fallback timeout - stop loading even if no auth event fires
     const timeout = setTimeout(() => {
       if (mounted && !initialSessionHandled.current) {
         console.log('Auth timeout - stopping loading')
+        initialSessionHandled.current = true
         setLoading(false)
       }
-    }, 2000)
+    }, 3000)
 
     return () => {
       mounted = false
