@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Profile, UserRole } from '@/types'
 import { User } from '@supabase/supabase-js'
@@ -31,6 +31,7 @@ export default function UserProvider({
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const initialSessionHandled = useRef(false)
   const supabase = createClient()
 
   const fetchProfile = async (userId: string) => {
@@ -62,53 +63,43 @@ export default function UserProvider({
   useEffect(() => {
     let mounted = true
 
-    const initUser = async () => {
-      try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser()
-        
-        if (mounted) {
-          setUser(currentUser)
-          if (currentUser) {
-            const profileData = await fetchProfile(currentUser.id)
-            if (mounted) {
-              setProfile(profileData)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing user:', error)
-      } finally {
-        if (mounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    initUser()
-
+    // Use onAuthStateChange as the primary source of truth
+    // It fires INITIAL_SESSION immediately with the session from cookies
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
 
+      console.log('Auth state change:', event, session?.user?.email)
+
       if (session?.user) {
         setUser(session.user)
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          const profileData = await fetchProfile(session.user.id)
-          if (mounted) {
-            setProfile(profileData)
-          }
+        // Fetch profile on any session event (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED)
+        const profileData = await fetchProfile(session.user.id)
+        if (mounted) {
+          setProfile(profileData)
         }
       } else {
         setUser(null)
         setProfile(null)
       }
       
-      if (event === 'INITIAL_SESSION') {
+      // Stop loading after any session-related event
+      if (!initialSessionHandled.current) {
+        initialSessionHandled.current = true
         setLoading(false)
       }
     })
 
+    // Fallback: if INITIAL_SESSION doesn't fire within 2 seconds, stop loading
+    const timeout = setTimeout(() => {
+      if (mounted && !initialSessionHandled.current) {
+        console.log('Auth timeout - stopping loading')
+        setLoading(false)
+      }
+    }, 2000)
+
     return () => {
       mounted = false
+      clearTimeout(timeout)
       subscription.unsubscribe()
     }
   }, [])

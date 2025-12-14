@@ -33,6 +33,12 @@ export const createClient = (cookieStore: any) => {
           }
         },
       },
+      cookieOptions: {
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24 * 400, // 400 days
+      },
     },
   );
 };
