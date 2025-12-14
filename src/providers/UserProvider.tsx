@@ -70,6 +70,12 @@ export default function UserProvider({
 
       console.log('Auth state change:', event, session?.user?.email)
 
+      // Stop loading IMMEDIATELY on first auth event (before any async operations)
+      if (!initialSessionHandled.current) {
+        initialSessionHandled.current = true
+        setLoading(false)
+      }
+
       if (session?.user) {
         setUser(session.user)
         // Fetch profile on any session event (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED)
@@ -80,12 +86,6 @@ export default function UserProvider({
       } else {
         setUser(null)
         setProfile(null)
-      }
-      
-      // Stop loading after any session-related event
-      if (!initialSessionHandled.current) {
-        initialSessionHandled.current = true
-        setLoading(false)
       }
     })
 
